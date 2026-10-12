@@ -122,30 +122,52 @@ Alle soorten stappen:
 
 Onderaan staat `MISSIE_STAPPEN`: een **dictionary** die elke letter van het menu koppelt aan een missie. Voeg je een missie F toe? Pas dan ook `PROGRAM_LIST` in `main.py` aan.
 
-**Getallen met een naam.** Een getal dat je vaak bijstelt op de mat, krijgt bovenaan de missie een naam in HOOFDLETTERS, met een letter van de missie ervoor:
+**Getallen met een naam.** Een getal dat je vaak bijstelt op de mat, krijgt bovenaan de missie een naam in HOOFDLETTERS, met de letter van de missie ervoor:
 
 ```python
-A_AFSTAND_NAAR_HAAI_1 = 66      # was 75
+A_AFSTAND_NAAR_BOOM = 250      # was 240
 
 MISSIE_A = [
     ...
-    ("straight", A_AFSTAND_NAAR_HAAI_1),
+    ("straight", A_AFSTAND_NAAR_BOOM),
 ]
 ```
 
 Zo pas je het getal op één plaats aan, en zie je in het commentaar wat de vorige waarde was.
 
-**Eigen functies.** Moet de robot iets doen dat geen gewone stap is, schrijf dan een kleine functie en roep ze op met `("call", ...)`. Missie D doet dat met `verhoog_grijper_versnelling`, zodat de rechter attachment sneller kan schudden.
+**Eigen functies.** Moet de robot iets doen dat geen gewone stap is, schrijf dan een kleine functie met `def` en roep ze op met `("call", naam_van_de_functie)`. Let op: geen haakjes achter de naam, dus `("call", stop_attachments)` en niet `("call", stop_attachments())`.
 
-Onze missies:
+#### Nieuwe missies schrijven
 
-| Letter | Missie |
-|---|---|
-| A | 1_1 (haai, borstel, plant) |
-| B | 12 (tandwielen) |
-| C | 10 |
-| D | 5 (tafel, schudden) |
-| E | arm omlaag en omhoog |
+> **Nieuw seizoen!** De missies van vorig seizoen zijn verwijderd, want ze passen niet bij de mat van BIOGLOW Founders Edition. Alle missies A tot E zijn nu **leeg** en moeten nog geschreven worden. Wil je zien hoe de oude missies eruitzagen? Die staan nog in de geschiedenis op GitHub.
+
+Zoek in `missies.py` naar **`NIEUWE STAPPEN HIER`**. Daar komen jullie stappen, telkens **boven** de regel `("call", stop_attachments)`: die moet altijd de laatste stap blijven, zodat de attachment-motoren na de missie loslaten.
+
+```python
+MISSIE_A = [
+    # ---- NIEUWE STAPPEN HIER ----
+    ("straight", 300),
+    ("turn", 90),
+    ("call", stop_attachments),   # laat deze regel altijd als LAATSTE staan
+]
+```
+
+Schrijf ook bij elke missie in de titel welke missie van de mat het is, bijvoorbeeld `# MISSIE A: M03 (naam van de missie)`.
+
+**Een extra missie toevoegen** (bijvoorbeeld F):
+1. Kopieer in `missies.py` een volledig missieblok en noem het `MISSIE_F`.
+2. Voeg in `MISSIE_STAPPEN` de regel `"F": MISSIE_F,` toe.
+3. Voeg in `main.py` de letter `'F'` toe aan `PROGRAM_LIST`.
+
+Onze missies (vul aan als een missie klaar is):
+
+| Letter | Missie op de mat | Klaar? |
+|---|---|---|
+| A | nog te kiezen | nee |
+| B | nog te kiezen | nee |
+| C | nog te kiezen | nee |
+| D | nog te kiezen | nee |
+| E | nog te kiezen | nee |
 
 ### main.py: het wedstrijdprogramma
 
