@@ -9,16 +9,20 @@ Vereist:
     pip install bleak pynput
 
 Werkwijze:
-    1. Open Pybricks Code, verbind met de hub, laad vrij_rijden.py, maar
-       druk NIET op 'run' -- druk gewoon op 'download' zodat het programma
-       op de hub klaarstaat.
+    1. Zet de code op de hub met Pybricks Code zoals altijd (main.py).
+       Druk niet op 'run', laat het programma gewoon op de hub staan.
     2. Koppel Pybricks Code los van de hub (Bluetooth-icoontje).
     3. Start dit script: python stuur_robot.py
     4. Zodra hier "Verbonden!" verschijnt, druk je op de knop OP DE HUB
-       zelf om vrij_rijden.py te starten.
+       zelf om main.py te starten. Kies in het menu de letter V en druk
+       op de middelste knop.
     5. Bestuur de robot met ZQSD (AZERTY), zie de toetsen hieronder.
+       Alles wat je rijdt, wordt opgenomen in opname.txt.
 
-Na het tunen: zet main.py terug op de hub voor de wedstrijd!
+AANGEPAST: vroeger moest je vrij_rijden.py op de hub zetten en daarna
+main.py terugzetten voor de wedstrijd. Dat hoeft niet meer: vrij rijden
+zit in het menu van main.py (letter V). vrij_rijden.py zelf starten kan
+ook nog altijd.
 """
 
 import asyncio
@@ -33,21 +37,29 @@ PYBRICKS_COMMAND_EVENT_CHAR_UUID = "c5f50002-8280-46da-89f4-6d8051e4aeef"
 HUB_NAME = "githo botic"
 
 LOGBESTAND = "rijlog.txt"
+# AANGEPAST (nieuw): hier komen de opgenomen stappen, klaar om te plakken
+OPNAMEBESTAND = "opname.txt"
+
+# AANGEPAST (nieuw): moet hetzelfde getal zijn als PROTOCOL in vrij_rijden.py
+PROTOCOL = 2
 
 # --- TOETSEN ---
 # Z / S       : vooruit / achteruit   (AZERTY-toetsenbord)
 # Q / D       : draaien links / rechts
+# Z + Q of D  : een bocht rijden
 # I / K       : linker attachment vooruit / achteruit
 # O / L       : rechter attachment vooruit / achteruit
 # SHIFT       : ingedrukt houden voor een tragere, preciezere snelheid
-# M           : stapmodus aan/uit (elke tik = 5 mm of 1 graad)
-# R           : zet afstand/hoek/attachment-hoeken hier terug op 0
-# SPATIE      : toon een kant-en-klare regel voor missies.py, en zet
-#               daarna meteen het nulpunt (zoals R)
+# M           : stapmodus aan/uit (elke tik = één kleine, exacte stap)
+# 1 / 2 / 3   : stapgrootte in stapmodus: fijn / normaal / grof
+# SPATIE      : de huidige stap nu afsluiten
+# ENTER       : de huidige stap afsluiten en de hele opname tonen
+# BACKSPACE   : laatste stap wissen, de robot rijdt terug
+# R           : opname wissen en opnieuw beginnen (nulpunt hier)
 # ESC         : programma stoppen
 
-# Welke toets op het toetsenbord welke actie doet. Wil je andere toetsen?
-# Pas enkel de letters links aan.
+# Welke toets op het toetsenbord welke actie doet, zolang je ze INGEDRUKT
+# HOUDT. Wil je andere toetsen? Pas enkel de letters links aan.
 TOETSEN = {
     "z": "vooruit",
     "q": "links",
@@ -61,11 +73,30 @@ TOETSEN = {
     "m": "stapmodus",
 }
 
-ingedrukte_toetsen = set()  # bevat de ACTIES (bv. "vooruit"), niet de letters
-spatie_al_verwerkt = False
-nulpunt_sturen = False      # True = stuur bij het volgende commando één keer "nulpunt"
+# AANGEPAST (nieuw): de cijfertoetsen voor de stapgrootte. Op een AZERTY-
+# toetsenbord geven de cijfers bovenaan zonder SHIFT de tekens & é " ,
+# daarom staan die er ook bij.
+STAPGROOTTE_TOETSEN = {
+    "1": "1", "&": "1",
+    "2": "2", "é": "2",
+    "3": "3", '"': "3",
+}
 
-laatste_waarden = {"afstand": 0, "hoek": 0, "links": 0, "rechts": 0}
+ingedrukte_toetsen = set()  # bevat de ACTIES (bv. "vooruit"), niet de letters
+# AANGEPAST (nieuw): acties die maar ÉÉN keer verstuurd worden (bv. SPATIE),
+# ook als je de toets heel kort aantikt of lang vasthoudt
+eenmalige_acties = set()
+# Toetsen die nu fysiek ingedrukt zijn. Houd je een toets lang vast, dan
+# stuurt de computer die toets steeds opnieuw ("autorepeat"). Zo herkennen
+# we dat en tellen we het maar één keer.
+al_ingedrukt = set()
+stapgrootte = "2"
+toon_alles_na_klaar = False     # True = na de volgende KLAAR de hele opname tonen
+
+# AANGEPAST (nieuw): een kopie van de opname op de hub
+opname = []                     # de stappen als tekst, bv. '("straight", 412),'
+eerste_nummer = 0               # het stapnummer van de eerste stap
+live_regel_getoond = False      # staat er nu een "nu: ..."-regel op het scherm?
 
 
 def schrijf_log(tekst):
@@ -75,82 +106,143 @@ def schrijf_log(tekst):
         bestand.write("[%s] %s\n" % (tijd, tekst))
 
 
+def toon(tekst=""):
+    """AANGEPAST (nieuw): print een gewone regel. Staat er een "nu: ..."-
+    regel, dan wissen we die eerst, zodat de tekst niet door elkaar loopt."""
+    global live_regel_getoond
+    if live_regel_getoond:
+        print("\r" + " " * 70 + "\r", end="")
+        live_regel_getoond = False
+    print(tekst)
+
+
+def toon_live(tekst):
+    """AANGEPAST (nieuw): de metingen van de huidige stap komen 10 keer per
+    seconde binnen. In plaats van 10 nieuwe regels per seconde, schrijven
+    we telkens over dezelfde regel. "\\r" springt terug naar het begin van
+    de regel."""
+    global live_regel_getoond
+    print("\r" + tekst.ljust(70), end="", flush=True)
+    live_regel_getoond = True
+
+
+def opname_als_tekst():
+    """Maakt de tekst voor opname.txt: de stappen met hun nummer."""
+    tijd = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    regels = [
+        "# Opname van stuur_robot.py (" + tijd + ")",
+        "# Kopieer de stappen naar je missie in missies.py, boven de regel",
+        '# ("call", stop_attachments). Het nummer achter # is het stapnummer.',
+    ]
+    for i, stap in enumerate(opname):
+        regels.append("    " + stap.ljust(48) + "# stap " + str(eerste_nummer + i))
+    if not opname:
+        regels.append("# (nog geen stappen)")
+    return "\n".join(regels) + "\n"
+
+
+def schrijf_opname():
+    """Zet de opname in opname.txt. Dit gebeurt na ELKE wijziging, zodat
+    het bestand altijd klopt, ook als het programma plots stopt."""
+    with open(OPNAMEBESTAND, "w", encoding="utf-8") as bestand:
+        bestand.write(opname_als_tekst())
+
+
 def verwerk_hub_regel(tekst):
-    """Leest een regel zoals 'afstand=245 hoek=12 links=0 rechts=-15' van de
-    hub en onthoudt de laatste waarden, voor de spatiebalk-functie."""
-    for deel in tekst.split():
-        if "=" in deel:
-            sleutel, _, waarde = deel.partition("=")
-            if sleutel in laatste_waarden:
-                try:
-                    laatste_waarden[sleutel] = int(waarde)
-                except ValueError:
-                    pass
+    """AANGEPAST: leest een regel van de hub. Regels die beginnen met
+    NIEUW, STAP of WEG houden de opname bij, "nu ..." toont de metingen.
+    Geeft True terug als de regel verwerkt is, anders False."""
+    global eerste_nummer, toon_alles_na_klaar
+    delen = tekst.split(" ", 2)    # hoogstens in 3 stukken knippen
 
+    if delen[0] == "nu":
+        toon_live("Deze stap: " + tekst[3:])
+        return True
 
-def toon_kopieerbare_stap():
-    """Toont (en logt) kant-en-klare regels voor missies.py, op basis van de
-    laatst ontvangen waarden van de hub.
+    if delen[0] == "NIEUW" and len(delen) >= 2:
+        eerste_nummer = int(delen[1])
+        opname.clear()
+        schrijf_opname()
+        toon("Nieuwe opname. De eerste stap krijgt nummer " + str(eerste_nummer) + ".")
+        return True
 
-    AANGEPAST: na het tonen zetten we meteen het nulpunt, net alsof je R
-    indrukt. Vroeger telden de getallen op sinds de laatste keer dat je R
-    drukte. Reed je rechtdoor en draaide je daarna, dan kreeg je bij de
-    tweede SPATIE de TOTALE afstand, en niet de afstand van die ene stap.
-    Nu is elke SPATIE precies één stap: rij, SPATIE, draai, SPATIE, ...
-    Ook tonen we enkel nog de bewegingen die niet 0 zijn."""
-    global nulpunt_sturen
+    if delen[0] == "STAP" and len(delen) == 3:
+        plaats = int(delen[1]) - eerste_nummer
+        del opname[plaats:]      # alles vanaf deze plaats weg (meestal niets)
+        opname.append(delen[2])
+        schrijf_opname()
+        toon("Stap " + delen[1] + ":  " + delen[2])
+        schrijf_log("STAP " + delen[1] + ": " + delen[2])
+        return True
 
-    regels = []
-    if laatste_waarden["afstand"] != 0:
-        regels.append('("straight", %d),' % laatste_waarden["afstand"])
-    if laatste_waarden["hoek"] != 0:
-        regels.append('("turn", %d),' % laatste_waarden["hoek"])
-    if abs(laatste_waarden["links"]) > 1:
-        regels.append('("run_angle", LEFT_ATTACHMENT, 200, %d),' % laatste_waarden["links"])
-    if abs(laatste_waarden["rechts"]) > 1:
-        regels.append('("run_angle", RIGHT_ATTACHMENT, 200, %d),' % laatste_waarden["rechts"])
+    if delen[0] == "WEG" and len(delen) >= 2:
+        plaats = int(delen[1]) - eerste_nummer
+        del opname[plaats:]
+        schrijf_opname()
+        toon("Stap " + delen[1] + " gewist, de robot reed terug.")
+        schrijf_log("WEG stap " + delen[1])
+        return True
 
-    print()
-    if regels:
-        print("Kopieerbaar voor missies.py:")
-        for regel in regels:
-            print("   ", regel)
-        schrijf_log("STAP: " + " | ".join(regels))
-    else:
-        print("De robot is niet bewogen sinds het vorige nulpunt.")
-    print()
+    if delen[0] == "KLAAR":
+        if toon_alles_na_klaar:
+            toon_alles_na_klaar = False
+            toon()
+            toon(opname_als_tekst())
+        return True
 
-    # Nulpunt zetten: de hub krijgt dit mee met het volgende commando
-    # (zie maak_commando). Hier op de computer zetten we de onthouden
-    # waarden ook al op 0, zodat een tweede SPATIE meteen klopt.
-    nulpunt_sturen = True
-    for sleutel in laatste_waarden:
-        laatste_waarden[sleutel] = 0
+    return False
 
 
 def on_press(key):
-    global spatie_al_verwerkt
+    global stapgrootte, toon_alles_na_klaar
+
+    # AANGEPAST: een toets die al ingedrukt was (autorepeat) negeren
+    try:
+        naam = key.char.lower()
+    except AttributeError:
+        naam = key           # een speciale toets zoals SPATIE of ENTER
+    if naam in al_ingedrukt:
+        return
+    al_ingedrukt.add(naam)
 
     if key in (keyboard.Key.shift, keyboard.Key.shift_r):
         ingedrukte_toetsen.add("precisie")
         return
 
+    # AANGEPAST (nieuw): de toetsen die één keer iets doen
     if key == keyboard.Key.space:
-        if not spatie_al_verwerkt:
-            spatie_al_verwerkt = True
-            toon_kopieerbare_stap()
+        eenmalige_acties.add("stap_klaar")
+        return
+    if key == keyboard.Key.enter:
+        eenmalige_acties.add("stap_klaar")
+        toon_alles_na_klaar = True
+        return
+    if key == keyboard.Key.backspace:
+        eenmalige_acties.add("ongedaan")
         return
 
-    try:
-        letter = key.char.lower()
-    except AttributeError:
+    # Cijfertoetsen op het numeriek klavier hebben soms geen teken, enkel
+    # een codenummer (vk). 97, 98, 99 zijn de toetsen 1, 2, 3 (Windows).
+    vk = getattr(key, "vk", None)
+    if vk in (97, 98, 99):
+        stapgrootte = str(vk - 96)
         return
-    if letter in TOETSEN:
-        ingedrukte_toetsen.add(TOETSEN[letter])
+
+    if not isinstance(naam, str):
+        return
+    if naam in STAPGROOTTE_TOETSEN:
+        stapgrootte = STAPGROOTTE_TOETSEN[naam]
+        return
+    if naam in TOETSEN:
+        ingedrukte_toetsen.add(TOETSEN[naam])
 
 
 def on_release(key):
-    global spatie_al_verwerkt
+    try:
+        naam = key.char.lower()
+    except AttributeError:
+        naam = key
+    al_ingedrukt.discard(naam)
 
     if key == keyboard.Key.esc:
         ingedrukte_toetsen.add("stoppen")
@@ -158,49 +250,44 @@ def on_release(key):
 
     if key in (keyboard.Key.shift, keyboard.Key.shift_r):
         ingedrukte_toetsen.discard("precisie")
+        # AANGEPAST: met SHIFT ingedrukt kan een letter als hoofdletter
+        # "losgelaten" worden. Voor de zekerheid alles loslaten.
+        al_ingedrukt.clear()
         return
 
-    if key == keyboard.Key.space:
-        spatie_al_verwerkt = False
-        return
-
-    try:
-        letter = key.char.lower()
-    except AttributeError:
-        return
-    if letter in TOETSEN:
-        ingedrukte_toetsen.discard(TOETSEN[letter])
+    if isinstance(naam, str) and naam in TOETSEN:
+        ingedrukte_toetsen.discard(TOETSEN[naam])
 
 
 def maak_commando():
-    """Bouwt het 12-tekens commando voor de hub, elk teken '1' of '0'.
+    """Bouwt het commando voor de hub: 14 tekens '1' of '0', dan de
+    stapgrootte ("1", "2" of "3") en een Enter-teken (\\n) op het einde.
     De volgorde moet exact overeenkomen met vrij_rijden.py op de hub."""
-    global nulpunt_sturen
-
-    # AANGEPAST: na SPATIE sturen we één keer "nulpunt" mee, net alsof R
-    # kort ingedrukt werd. Daarna meteen weer uit, zodat de hub het ziet
-    # als één tik. (Zo werkt het ook als je SPATIE heel kort aantikt.)
+    # AANGEPAST: de eenmalige acties worden één keer meegestuurd en daarna
+    # meteen gewist. De hub ziet ze zo als één tik.
     toetsen = set(ingedrukte_toetsen)   # een kopie, het origineel blijft hetzelfde
-    if nulpunt_sturen:
-        toetsen.add("nulpunt")
-        nulpunt_sturen = False
+    toetsen.update(eenmalige_acties)    # update() voegt een hele verzameling toe
+    eenmalige_acties.clear()
 
     volgorde = ("vooruit", "links", "achteruit", "rechts", "nulpunt", "stoppen",
                 "links_att_plus", "links_att_min", "rechts_att_plus", "rechts_att_min",
-                "precisie", "stapmodus")
-    return "".join("1" if t in toetsen else "0" for t in volgorde).encode()
+                "precisie", "stapmodus", "stap_klaar", "ongedaan")
+    bits = "".join("1" if t in toetsen else "0" for t in volgorde)
+    return (bits + stapgrootte + "\n").encode()
 
 
 async def main():
     main_task = asyncio.current_task()
 
     def handle_disconnect(_):
-        print("Verbinding met de hub verbroken.")
+        toon("Verbinding met de hub verbroken.")
         schrijf_log("Verbinding verbroken.")
         if not main_task.done():
             main_task.cancel()
 
     ready_event = asyncio.Event()
+    protocol_ok = asyncio.Event()   # AANGEPAST: de hub heeft de juiste versie
+    einde_event = asyncio.Event()   # AANGEPAST: de hub is klaar met afsluiten
     ontvangen = bytearray()  # buffer: Bluetooth knipt berichten in stukjes
 
     def handle_rx(_, data: bytearray):
@@ -224,9 +311,28 @@ async def main():
                 break
             regel = bytes(ontvangen[:einde]).decode(errors="ignore").strip()
             del ontvangen[:einde + 1]
-            if regel:
-                print("Hub:", regel)
-                verwerk_hub_regel(regel)
+            if not regel:
+                continue
+
+            # AANGEPAST (nieuw): klopt de versie van de hub?
+            if regel.startswith("PROTOCOL"):
+                if regel == "PROTOCOL %d" % PROTOCOL:
+                    protocol_ok.set()
+                else:
+                    toon("Hub: " + regel)
+                    toon("Deze stuur_robot.py past niet bij de code op de hub.")
+                    toon("Download de nieuwste versie van allebei.")
+                continue
+            if regel.startswith("Klaar om te rijden"):
+                # zo begon de OUDE vrij_rijden.py
+                toon("De hub heeft een oude vrij_rijden.py. Zet de nieuwste code op de hub.")
+                continue
+            if regel == "EINDE":
+                einde_event.set()
+                continue
+
+            if not verwerk_hub_regel(regel):
+                toon("Hub: " + regel)
                 schrijf_log("HUB: " + regel)
 
     schrijf_log("=== Nieuwe sessie gestart ===")
@@ -243,6 +349,7 @@ async def main():
         await client.start_notify(PYBRICKS_COMMAND_EVENT_CHAR_UUID, handle_rx)
 
         async def send(data):
+            await protocol_ok.wait()
             await ready_event.wait()
             ready_event.clear()
             await client.write_gatt_char(
@@ -254,9 +361,12 @@ async def main():
         luisteraar = keyboard.Listener(on_press=on_press, on_release=on_release)
         luisteraar.start()
 
-        print("Verbonden! Druk nu op de knop OP DE HUB om vrij_rijden.py te starten.")
+        print("Verbonden! Druk nu op de knop OP DE HUB om main.py te starten,")
+        print("kies de letter V en druk op de middelste knop.")
         print("Z/S=vooruit/achteruit  Q/D=draaien  I/K=linker attachment  O/L=rechter attachment")
-        print("SHIFT=extra traag  M=stapmodus aan/uit  R=nulpunt hier  SPATIE=kopieerbare regel + nulpunt  ESC=stoppen")
+        print("SHIFT=extra traag  M=stapmodus  1/2/3=stapgrootte  R=nieuwe opname  ESC=stoppen")
+        print("SPATIE=stap afsluiten  ENTER=hele opname tonen  BACKSPACE=laatste stap terug")
+        print("De opname staat altijd in", OPNAMEBESTAND)
 
         while "stoppen" not in ingedrukte_toetsen:
             await send(maak_commando())
@@ -264,7 +374,12 @@ async def main():
 
         await send(maak_commando())  # laatste commando (met stoppen=1) sluit de hub-lus af
         luisteraar.stop()
-        print("Gestopt.")
+        # AANGEPAST: even wachten tot de hub de laatste stap doorstuurde
+        with suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(einde_event.wait(), 3)
+        toon()
+        toon(opname_als_tekst())
+        toon("Gestopt. De opname staat in " + OPNAMEBESTAND)
         schrijf_log("=== Sessie gestopt ===")
 
 

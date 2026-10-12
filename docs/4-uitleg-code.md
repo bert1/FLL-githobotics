@@ -50,10 +50,11 @@ Dit programma toont een letter op het scherm van de hub. De knoppen:
 | MIDDEN | missie starten (pas als je loslaat) | oranje tijdens het rijden |
 | MIDDEN tijdens het rijden | noodstop (laat de knop daarna los) | rood |
 | LINKS + RECHTS samen | testmodus | |
+| MIDDEN bij de letter **V** | rijden met het toetsenbord (zie [hieronder](#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord)) | wit |
 
 Bij het opstarten worden eerst alle missies gecontroleerd op tikfouten (zie [Missies schrijven](3-missies-schrijven.md#tikfout-in-een-missie)).
 
-Na een geslaagde missie springt het menu vanzelf naar de volgende letter.
+Na een geslaagde missie springt het menu vanzelf naar de volgende letter. Na de laatste missie gaat het terug naar A, niet naar V.
 
 **De testmodus** is er om niet telkens een hele missie te moeten rijden als je maar één stap wil controleren.
 
@@ -70,7 +71,7 @@ Zet de robot voor elke test met de hand terug op de juiste plek: de robot weet n
 
 ## vrij_rijden.py en stuur_robot.py: rijden met het toetsenbord
 
-Hiermee rijd je de robot met de hand naar de juiste plek, en lees je af hoeveel mm en graden dat was. Die getallen gebruik je dan in `missies.py`.
+Hiermee rijd je de robot met het toetsenbord over de mat, en **neemt de robot alles op**. Elke beweging wordt een stap voor `missies.py`. Op de computer staan alle stappen in het bestand `opname.txt`, klaar om te plakken.
 
 **Eenmalig klaarzetten op de computer:**
 1. Installeer Python van [python.org](https://www.python.org/downloads/) (vink bij het installeren *Add Python to PATH* aan).
@@ -84,10 +85,14 @@ pip install bleak pynput
 Ga daarna in de terminal naar de map met `stuur_robot.py`, bijvoorbeeld met `cd Documenten/robot`.
 
 **Werkwijze:**
-1. Open Pybricks Code, verbind met de hub en laad `vrij_rijden.py` op de hub.
+1. Zet de code op de hub zoals altijd, met `main.py`. Je hoeft **geen** ander programma op de hub te zetten.
 2. Koppel Pybricks Code los van de hub (Bluetooth-icoontje).
 3. Start op de computer: `python stuur_robot.py`
-4. Verschijnt "Verbonden!"? Druk dan op de knop op de hub zelf om `vrij_rijden.py` te starten.
+4. Verschijnt "Verbonden!"? Druk dan op de knop op de hub zelf om `main.py` te starten.
+5. Kies in het menu de letter **V** (lampje wit) en druk op MIDDEN.
+6. Rij! Stoppen doe je met ESC op de computer of MIDDEN op de hub. Daarna sta je terug in het menu, klaar voor de wedstrijd.
+
+Je kan ook nog altijd `vrij_rijden.py` zelf op de hub laden en starten, zoals vroeger.
 
 **Toetsen** (AZERTY):
 
@@ -95,26 +100,61 @@ Ga daarna in de terminal naar de map met `stuur_robot.py`, bijvoorbeeld met `cd 
 |---|---|
 | Z / S | vooruit / achteruit |
 | Q / D | draaien links / rechts |
+| Z (of S) samen met Q (of D) | een bocht rijden |
 | I / K | linker attachment + / - |
 | O / L | rechter attachment + / - |
 | SHIFT ingedrukt | extra traag, voor de laatste millimeters |
-| M | stapmodus aan/uit: elke tik is precies 5 mm of 1 graad |
-| R | nulpunt: afstand, hoek en attachments hier op 0 zetten |
-| SPATIE | toon een kant-en-klare regel om in `missies.py` te plakken, en zet daarna meteen het nulpunt |
+| M | stapmodus aan/uit: elke tik is één kleine, exacte beweging |
+| 1 / 2 / 3 | stapgrootte in de stapmodus: fijn (1 mm) / normaal (5 mm) / grof (20 mm) |
+| SPATIE | de huidige stap nu afsluiten |
+| ENTER | de huidige stap afsluiten en de hele opname tonen |
+| BACKSPACE | de laatste stap wissen: de robot rijdt terug naar waar hij voor die stap stond |
+| R | de opname wissen en opnieuw beginnen op de plek waar de robot nu staat |
 | ESC | stoppen |
-| knop op de hub | stopt altijd meteen |
+| MIDDEN op de hub | stopt altijd meteen |
+
+Voor de cijfers 1, 2, 3 mag je de toetsen bovenaan gebruiken (zonder SHIFT) of het numeriek klavier.
+
+**Zo werkt de opname.** De robot onthoudt welke *soort* beweging je maakt: rechtdoor, draaien, een bocht, de linker of de rechter attachment. Begin je aan een **andere soort**, dan stopt de robot heel even en wordt de vorige beweging een stap. Een voorbeeld:
+
+1. Z ingedrukt houden: de robot rijdt vooruit. Even te ver? Tik S om wat terug te rijden. Dat blijft dezelfde stap.
+2. Q indrukken: de robot stopt even, en op de computer verschijnt `Stap 0:  ("straight", 412),`. Nu draait de robot.
+3. I indrukken: `Stap 1:  ("turn", -37),` verschijnt, en de arm beweegt.
+4. ESC: de laatste stap `("run_angle", LEFT_ATTACHMENT, 200, 90),` komt erbij en `opname.txt` is klaar.
+
+Wil je twee stukken rechtdoor als **twee aparte** stappen? Druk er SPATIE tussen. Was een stap fout? Druk BACKSPACE: de stap verdwijnt uit de opname en de robot rijdt terug, zodat je opnieuw kan proberen.
+
+Terwijl je rijdt, zie je onderaan in de terminal hoeveel de **huidige** stap al is (`Deze stap: afstand=... hoek=...`). Op het scherm van de hub staat het nummer van de stap die je nu aan het opnemen bent.
+
+**Van opname naar missie.** Open `opname.txt` (in dezelfde map als `stuur_robot.py`). Het ziet er zo uit:
+
+```
+# Opname van stuur_robot.py (12-10-2026 14:03)
+# Kopieer de stappen naar je missie in missies.py, boven de regel
+# ("call", stop_attachments). Het nummer achter # is het stapnummer.
+    ("straight", 412),                              # stap 0
+    ("turn", -37),                                  # stap 1
+    ("run_angle", LEFT_ATTACHMENT, 200, 90),        # stap 2
+```
+
+Kopieer de stappen in je missie in `missies.py`, boven `("call", stop_attachments)`. Test daarna met de testmodus. Bij een nieuwe opname wordt `opname.txt` overschreven: kopieer dus eerst wat je wil houden.
+
+**Goed om te weten:**
+- Met het toetsenbord rijdt de robot traag. In de missie rijdt hij sneller, en dan kan hij net iets anders uitkomen (bijvoorbeeld als hij tegen iets aan botst). Test dus altijd in de testmodus.
+- Heel kleine bewegingen (minder dan 3 mm of 1 graad) worden geen stap. Die tellen mee bij de volgende stap.
+- De snelheid in een opgenomen attachment-stap is altijd 200. Pas ze daarna gerust aan in `missies.py`.
 
 Alles wat de hub terugstuurt wordt ook bewaard in `rijlog.txt` op de computer.
 
-**Werkwijze per stap:** rij rechtdoor, druk SPATIE, draai, druk SPATIE, ... Na elke SPATIE wordt het nulpunt automatisch gezet, dus elke regel die je krijgt is precies één stap. Je hoeft geen R meer te drukken. Bewegingen die 0 zijn worden niet getoond. Druk SPATIE best als de robot stilstaat: het nulpunt zetten stopt de robot even.
-
 **Veiligheid:** komt er 0,5 seconde lang niets binnen van de computer (verbinding weg), dan stopt de robot vanzelf.
 
-**Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, stapgrootte en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
+**Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, de stapgroottes (`STAPGROOTTES`), de snelheid in opgenomen attachment-stappen (`ATTACHMENT_SNELHEID_IN_MISSIE`), vanaf wanneer een beweging een stap wordt (`MIN_AFSTAND`, `MIN_HOEK`, ...) en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
 
 Heet jullie hub anders dan `githo botic`? Pas dan `HUB_NAME` bovenaan `stuur_robot.py` aan.
 
-**Na het uitzoeken: zet `main.py` terug op de hub voor de wedstrijd!**
+**Werkt het niet?**
+- Zegt de computer *"Deze stuur_robot.py past niet bij de code op de hub"* of *"De hub heeft een oude vrij_rijden.py"*? Download dan de nieuwste `stuur_robot.py` **en** de nieuwste code voor de hub. Ze moeten van dezelfde versie zijn.
+- Reageert de robot niet? Kijk of je in het menu wel de letter V gestart hebt.
 
 ---
 

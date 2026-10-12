@@ -18,7 +18,9 @@
 # Het is gewoon de datum van de laatste wijziging. Bij elke nieuwe versie
 # verandert dit getal, en in WIJZIGINGEN.md (op GitHub) lees je wat er
 # toen veranderd is.
-VERSIE = "2026-10-12"
+# AANGEPAST: komt er op dezelfde dag een tweede versie, dan krijgt de datum
+# een letter erachter (2026-10-12b), zodat je ze toch kan onderscheiden.
+VERSIE = "2026-10-12b"
 
 import math
 from pybricks.hubs import PrimeHub

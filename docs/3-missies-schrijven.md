@@ -34,7 +34,7 @@ De stappen tellen **vanaf 0**. Dat nummer zie je op het scherm van de hub tijden
 |---|---|---|
 | `("straight", mm)` | rechtdoor rijden, negatief is achteruit | `("straight", -150)` |
 | `("turn", graden)` | ter plaatse draaien, positief is rechts, negatief is links | `("turn", -45)` |
-| `("curve", straal, graden)` | een bocht rijden | `("curve", 200, 90)` |
+| `("curve", straal, graden)` | een bocht rijden. Straal positief = vooruit, negatief = achteruit. Graden positief = naar rechts (als je vooruit rijdt) | `("curve", 200, 90)` |
 | `("wait", ms)` | wachten (1000 ms = 1 seconde) | `("wait", 500)` |
 | `("run_angle", motor, snelheid, graden)` | attachment draaien | `("run_angle", RIGHT_ATTACHMENT, 300, 180)` |
 | `("run_angle", motor, snelheid, graden, Stop.COAST)` | idem, en daarna de motor loslaten | |
@@ -69,7 +69,7 @@ Meer hoeft niet: het menu in `main.py` neemt de letter F vanzelf over.
 
 ## Handige tips
 
-**Afstanden meten.** Je hoeft niet te gokken hoeveel mm de robot moet rijden. Rij met het toetsenbord naar de juiste plek en druk op SPATIE: je krijgt een regel die je zo kan plakken. Zie [vrij_rijden.py en stuur_robot.py](4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord).
+**Een missie opnemen.** Je hoeft niet te gokken hoeveel mm de robot moet rijden. Kies in het menu de letter V en rij met het toetsenbord de hele missie. Elke beweging wordt een stap, en alle stappen staan klaar in `opname.txt` op de computer. Die plak je zo in je missie. Zie [vrij_rijden.py en stuur_robot.py](4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord).
 
 **Een stukje testen.** Druk in het menu LINKS en RECHTS samen in voor de testmodus. Dan rijdt de robot maar een paar stappen. Zie [de testmodus](4-uitleg-code.md#mainpy-het-wedstrijdprogramma).
 

@@ -9,6 +9,32 @@ Hoe werk je bij? Zie [1. GitHub en Pybricks](docs/1-github-en-pybricks.md#er-is-
 
 ---
 
+## Versie 2026-10-12b
+
+Rijden met het toetsenbord is nu veel handiger om missies te maken: de robot neemt alles op.
+
+**Wat moet je doen?**
+- Maak eerst een back-up in Pybricks Code (**Backup all files**).
+- Download [robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip) en importeer het in Pybricks Code. Kies telkens voor vervangen.
+- Download ook de nieuwe [stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py) en zet ze in de plaats van de oude. De oude `stuur_robot.py` werkt **niet** met de nieuwe code op de hub (en omgekeerd). De computer waarschuwt je als het niet past.
+- **`missies.py` hoeft niet te veranderen.** Jullie missies blijven zoals ze zijn.
+
+**Wat is er nieuw?**
+- **Opnemen:** elke beweging die je met het toetsenbord maakt, wordt automatisch een stap. Begin je aan een andere soort beweging (bijvoorbeeld van rijden naar draaien), dan wordt de vorige een stap. Alle stappen komen in `opname.txt` op de computer, klaar om in `missies.py` te plakken, met hun stapnummer erbij.
+- **Letter V in het menu:** vrij rijden zit nu in `main.py`. Je hoeft dus geen ander programma meer op de hub te zetten, en ook niet te onthouden om `main.py` terug te zetten.
+- **BACKSPACE** wist de laatste stap en de robot rijdt terug, zodat je opnieuw kan proberen.
+- **SPATIE** sluit de huidige stap af, **ENTER** toont daarna ook de hele opname. (SPATIE zet niet meer zelf het nulpunt: dat is niet meer nodig.)
+- **R** wist de opname en begint opnieuw.
+- **Bochten:** Z en Q (of D) samen wordt een `("curve", straal, graden)`-stap.
+- **Stapgrootte** in de stapmodus kies je met de toetsen 1, 2 en 3 (fijn, normaal, grof).
+- De metingen van de huidige stap staan op één regel die zich steeds aanpast, in plaats van 10 nieuwe regels per seconde.
+- De snelheid in opgenomen attachment-stappen stel je in bovenaan `vrij_rijden.py` (`ATTACHMENT_SNELHEID_IN_MISSIE`).
+- In de stapmodus kan de knop op de hub nu ook tijdens een stap stoppen.
+
+**Gewijzigde bestanden:** `robot/vrij_rijden.py`, `robot/main.py`, `robot/supportcode.py` (enkel `VERSIE`), `computer/stuur_robot.py`.
+
+---
+
 ## Versie 2026-10-12
 
 De eerste versie voor het seizoen BIOGLOW Founders Edition.

@@ -3,22 +3,31 @@
 # =====================================================================
 # Dit programma luistert naar commando's die stuur_robot.py vanaf de
 # computer stuurt, en laat de robot rijden zolang je een toets indrukt.
-# Handig om uit te zoeken hoeveel mm of graden een missie moet rijden.
+#
+# AANGEPAST: het programma NEEMT NU OOK OP. Elke beweging die je maakt
+# (rechtdoor, draaien, een bocht, een attachment) wordt automatisch een
+# stap voor missies.py. Begin je aan een ANDERE soort beweging, dan wordt
+# de vorige stap afgesloten. stuur_robot.py schrijft alle stappen in het
+# bestand opname.txt op de computer, klaar om te plakken.
+#
+# AANGEPAST: je kan dit programma op twee manieren starten:
+#   1. vanuit het menu van main.py: kies de letter V (zo hoef je niet
+#      meer van programma te wisselen, main.py blijft op de hub staan)
+#   2. zoals vroeger: vrij_rijden.py zelf op de hub laden en starten
 # Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
 
-from supportcode import DRIVE_BASE, HUB, LEFT_ATTACHMENT, RIGHT_ATTACHMENT
+import math
+
+from supportcode import (DRIVE_BASE, HUB, LEFT_ATTACHMENT, RIGHT_ATTACHMENT,
+                         MissionStop, safe_straight, safe_turn, safe_curve,
+                         safe_run_angle)
 from pybricks.parameters import Button
 from pybricks.tools import wait, StopWatch
 
 # Standaard MicroPython-modules voor het lezen van inkomende data
 from usys import stdin, stdout
 from uselect import poll
-
-# --- DIT IS EEN APART TEST-PROGRAMMA, GEEN ONDERDEEL VAN main.py ---
-# Laad dit programma via Pybricks Code op de hub om precies rond te rijden met
-# je toetsenbord (via stuur_robot.py op je computer). Vergeet niet om na het
-# tunen main.py terug op de hub te zetten voor de wedstrijd!
 
 # =====================================================================
 # INSTELLINGEN (pas hier aan, nergens anders)
@@ -34,9 +43,28 @@ PRECIEZE_DRAAISNELHEID = 15
 PRECIEZE_ATTACHMENT_SNELHEID = 40
 
 # STAPMODUS (aan/uit met M): elke tik op een toets = één exacte, kleine stap
-STAP_MM = 5                         # Z/S: zoveel mm per tik
-STAP_GRADEN = 1                     # Q/D: zoveel graden per tik
-STAP_ATTACHMENT = 5                 # I/K, O/L: zoveel motorgraden per tik
+# AANGEPAST: vroeger was er maar één stapgrootte. Nu kies je er een met de
+# cijfertoetsen 1, 2 en 3 op het toetsenbord, zonder iets aan te passen.
+# Per keuze: (mm per tik voor Z/S, graden per tik voor Q/D,
+#             motorgraden per tik voor de attachments)
+STAPGROOTTES = {
+    "1": (1, 1, 1),       # heel fijn
+    "2": (5, 1, 5),       # normaal (zo begint het programma)
+    "3": (20, 5, 20),     # grof, om snel dichterbij te komen
+}
+
+# AANGEPAST (nieuw): instellingen voor het OPNEMEN van stappen
+# Welke snelheid komt er in een opgenomen attachment-stap, bv.
+# ("run_angle", LEFT_ATTACHMENT, 200, 90)? (graden per seconde)
+ATTACHMENT_SNELHEID_IN_MISSIE = 200
+# Kleinere bewegingen dan dit zijn ruis en worden geen stap
+MIN_AFSTAND = 3          # mm
+MIN_HOEK = 1             # graden
+MIN_ATTACHMENT = 2       # motorgraden
+# Reed de robot vooruit EN draaide hij tegelijk (Z en Q samen), dan wordt
+# het een bocht ("curve"), maar enkel als beide groot genoeg zijn
+BOCHT_MIN_AFSTAND = 20   # mm
+BOCHT_MIN_HOEK = 5       # graden
 
 # Welke regeling houdt de robot recht?
 # True  = onze eigen PID hieronder (instelbaar met KP, KI, KD)
@@ -62,7 +90,7 @@ VOORUIT = 0
 LINKS = 1
 ACHTERUIT = 2
 RECHTS = 3
-NULPUNT = 4
+NULPUNT = 4       # R: nieuwe opname beginnen
 STOPPEN = 5
 LA_PLUS = 6       # linker attachment +
 LA_MIN = 7        # linker attachment -
@@ -70,8 +98,22 @@ RA_PLUS = 8       # rechter attachment +
 RA_MIN = 9        # rechter attachment -
 PRECISIE = 10
 STAPMODUS = 11
-AANTAL_TEKENS = 12
+# AANGEPAST (nieuw): drie extra tekens
+STAP_KLAAR = 12   # SPATIE of ENTER: de huidige stap nu afsluiten
+ONGEDAAN = 13     # BACKSPACE: laatste stap wissen en terugrijden
+STAPGROOTTE = 14  # dit teken is geen 0 of 1, maar "1", "2" of "3"
+AANTAL_TEKENS = 15
 
+# AANGEPAST (nieuw): het "versienummer" van de afspraken tussen computer en
+# hub. stuur_robot.py stuurt pas commando's als het dit nummer ziet. Zo kan
+# een oude stuur_robot.py nooit per ongeluk een nieuwe hub besturen (of
+# omgekeerd): dan zouden de toetsen door elkaar lopen.
+PROTOCOL = 2
+
+
+# =====================================================================
+# HULPFUNCTIES
+# =====================================================================
 
 def ingedrukt(cmd, nummer):
     """Is deze toets op dit moment ingedrukt?"""
@@ -82,6 +124,18 @@ def net_ingedrukt(cmd, vorige_cmd, nummer):
     """Is deze toets NET ingedrukt (nu wel, de vorige keer nog niet)?
     Zo telt een toets die je ingedrukt houdt maar als één tik."""
     return ingedrukt(cmd, nummer) and not ingedrukt(vorige_cmd, nummer)
+
+
+def rij_instellingen():
+    """Snelheden en gyro-regeling voor het rijden met het toetsenbord."""
+    if GEBRUIK_EIGEN_PID:
+        # Ingebouwde gyro-correctie UIT: onze eigen PID doet die taak.
+        # Zo werken ze niet tegen elkaar in.
+        DRIVE_BASE.use_gyro(False)
+    else:
+        DRIVE_BASE.use_gyro(True)
+    DRIVE_BASE.settings(straight_speed=100, straight_acceleration=200,
+                        turn_rate=30, turn_acceleration=100)
 
 
 def nulpunt_zetten():
@@ -98,19 +152,195 @@ def stop_alles():
     RIGHT_ATTACHMENT.hold()
 
 
-def vrij_rijden():
-    if GEBRUIK_EIGEN_PID:
-        # Ingebouwde gyro-correctie UIT: onze eigen PID doet die taak.
-        # Zo werken ze niet tegen elkaar in.
-        DRIVE_BASE.use_gyro(False)
+def soort_beweging(cmd):
+    """AANGEPAST (nieuw): welke SOORT beweging vraag je nu met de toetsen?
+    Geeft "rijden", "draaien", "bocht", "links_att", "rechts_att" terug,
+    of None als je niets indrukt. Verandert de soort, dan begint er een
+    nieuwe stap in de opname."""
+    rijden = ingedrukt(cmd, VOORUIT) or ingedrukt(cmd, ACHTERUIT)
+    draaien = ingedrukt(cmd, LINKS) or ingedrukt(cmd, RECHTS)
+    if rijden and draaien:
+        return "bocht"
+    if rijden:
+        return "rijden"
+    if draaien:
+        return "draaien"
+    if ingedrukt(cmd, LA_PLUS) or ingedrukt(cmd, LA_MIN):
+        return "links_att"
+    if ingedrukt(cmd, RA_PLUS) or ingedrukt(cmd, RA_MIN):
+        return "rechts_att"
+    return None
+
+
+def lees_metingen():
+    """Waar staat de robot nu? Een dictionary met 4 metingen."""
+    return {
+        "afstand": DRIVE_BASE.distance(),     # mm, gemeten met de wielen
+        "hoek": HUB.imu.heading(),            # graden, gemeten met de gyro
+        "links": LEFT_ATTACHMENT.angle(),     # motorgraden
+        "rechts": RIGHT_ATTACHMENT.angle(),
+    }
+
+
+def verschil_sinds(begin):
+    """Hoeveel is de robot bewogen sinds de metingen in 'begin'?
+    Geeft 4 getallen terug: afstand, hoek, links, rechts."""
+    nu = lees_metingen()
+    return (nu["afstand"] - begin["afstand"],
+            nu["hoek"] - begin["hoek"],
+            nu["links"] - begin["links"],
+            nu["rechts"] - begin["rechts"])
+
+
+def wacht_tot_stilstand():
+    """Stopt de wielen en wacht (hoogstens 1 seconde) tot de robot echt
+    stilstaat. Pas dan meten we, anders mist de stap de laatste mm."""
+    DRIVE_BASE.stop()
+    klok = StopWatch()
+    while klok.time() < 1000:
+        # state() geeft 4 getallen: afstand, snelheid, hoek, draaisnelheid
+        toestand = DRIVE_BASE.state()
+        if abs(toestand[1]) < 5 and abs(toestand[3]) < 5:
+            break
+        wait(10)
+    wait(50)
+
+
+def maak_stappen(afstand, hoek, links, rechts):
+    """Maakt van een gemeten beweging stappen voor missies.py.
+    Geeft een lijst terug (leeg als de robot amper bewoog)."""
+    stappen = []
+    afstand = round(afstand)
+    hoek = round(hoek)
+
+    if abs(afstand) >= BOCHT_MIN_AFSTAND and abs(hoek) >= BOCHT_MIN_HOEK:
+        # Gereden EN gedraaid: een bocht. Pybricks wil de straal van de
+        # cirkel en hoeveel graden je over die cirkel rijdt.
+        # Een booglengte is straal x hoek (de hoek in radialen: graden
+        # maal pi gedeeld door 180). Dus: straal = afstand / hoek_in_radialen.
+        # Zo werken de tekens (+ of -) bij Pybricks:
+        #   straal positief = vooruit, straal negatief = achteruit
+        #   graden positief = naar rechts als je vooruit rijdt
+        # Rijd je achteruit, dan keert het teken van de graden om.
+        straal = round(afstand / abs(hoek * math.pi / 180))
+        if afstand > 0:
+            graden = hoek
+        else:
+            graden = -hoek
+        stappen.append(("curve", straal, graden))
     else:
-        DRIVE_BASE.use_gyro(True)
-    DRIVE_BASE.settings(straight_speed=100, straight_acceleration=200,
-                        turn_rate=30, turn_acceleration=100)
+        if abs(afstand) >= MIN_AFSTAND:
+            stappen.append(("straight", afstand))
+        if abs(hoek) >= MIN_HOEK:
+            stappen.append(("turn", hoek))
+
+    if abs(links) >= MIN_ATTACHMENT:
+        stappen.append(("run_angle", LEFT_ATTACHMENT,
+                        ATTACHMENT_SNELHEID_IN_MISSIE, round(links)))
+    if abs(rechts) >= MIN_ATTACHMENT:
+        stappen.append(("run_angle", RIGHT_ATTACHMENT,
+                        ATTACHMENT_SNELHEID_IN_MISSIE, round(rechts)))
+    return stappen
+
+
+def stap_als_tekst(stap):
+    """Schrijft een stap als tekst, precies zoals in missies.py, bv.
+    ("straight", 412),   Die tekst sturen we naar de computer."""
+    tekst = '("' + stap[0] + '"'
+    # stap[1:] betekent: alles van de stap behalve het eerste element
+    for waarde in stap[1:]:
+        if waarde == LEFT_ATTACHMENT:
+            tekst += ", LEFT_ATTACHMENT"
+        elif waarde == RIGHT_ATTACHMENT:
+            tekst += ", RIGHT_ATTACHMENT"
+        else:
+            tekst += ", " + str(waarde)
+    return tekst + "),"
+
+
+def keer_om(stap):
+    """Voert een stap ACHTERSTEVOREN uit, zodat de robot terugkeert naar
+    waar hij voor die stap stond (voor BACKSPACE)."""
+    soort = stap[0]
+    if soort == "straight":
+        safe_straight(-stap[1])
+        wacht_tot_stilstand()
+    elif soort == "turn":
+        safe_turn(-stap[1])
+        wacht_tot_stilstand()
+    elif soort == "curve":
+        safe_curve(-stap[1], stap[2])    # dezelfde cirkel, achteruit
+        wacht_tot_stilstand()
+    elif soort == "run_angle":
+        safe_run_angle(stap[1], stap[2], -stap[3])
+
+
+# =====================================================================
+# DE OPNAME
+# =====================================================================
+# AANGEPAST (nieuw): alles wat de opname moet onthouden, staat in deze
+# variabelen buiten de functies. Daarom staat er in de functies 'global'.
+opname = []              # de opgenomen stappen, bv. [("straight", 412), ...]
+eerste_nummer = 0        # welk stapnummer de eerste opgenomen stap krijgt
+begin_van_stap = {}      # metingen op het moment dat de huidige stap begon
+
+
+def nieuwe_opname():
+    """Wist de opname en begint opnieuw, met de robot op 0."""
+    global begin_van_stap
+    opname.clear()     # clear() maakt de lijst leeg
     nulpunt_zetten()
+    begin_van_stap = lees_metingen()
+    # De computer luistert naar regels die beginnen met NIEUW, STAP of WEG
+    print("NIEUW", eerste_nummer)
+
+
+def sluit_stap():
+    """Sluit de huidige stap af: meten, stappen maken, doorsturen."""
+    global begin_van_stap
+    wacht_tot_stilstand()
+    afstand, hoek, links, rechts = verschil_sinds(begin_van_stap)
+    nieuwe_stappen = maak_stappen(afstand, hoek, links, rechts)
+    for stap in nieuwe_stappen:
+        opname.append(stap)
+        print("STAP", eerste_nummer + len(opname) - 1, stap_als_tekst(stap))
+    # Was de beweging te klein voor een stap? Dan beginnen we NIET opnieuw
+    # te tellen: die paar mm tellen dan mee bij de volgende stap.
+    if nieuwe_stappen:
+        begin_van_stap = lees_metingen()
+    HUB.display.number(eerste_nummer + len(opname))
+
+
+def laatste_stap_ongedaan():
+    """Wist de laatste stap en rijdt de robot terug naar waar hij voor
+    die stap stond. Zo kan je een foute beweging opnieuw proberen."""
+    global begin_van_stap
+    sluit_stap()    # eerst de beweging van nu ook als stap bewaren
+    if not opname:
+        print("Er is geen stap om ongedaan te maken.")
+        return
+    stap = opname.pop()    # pop() haalt het laatste element uit de lijst
+    keer_om(stap)
+    begin_van_stap = lees_metingen()
+    print("WEG", eerste_nummer + len(opname))
+    HUB.display.number(eerste_nummer + len(opname))
+
+
+# =====================================================================
+# HET HOOFDPROGRAMMA
+# =====================================================================
+
+def vrij_rijden():
+    """Rijden met het toetsenbord en alles opnemen. Stopt met ESC op de
+    computer of met de middelste knop op de hub."""
+    rij_instellingen()
 
     toetsenbord = poll()
     toetsenbord.register(stdin)
+
+    # AANGEPAST: oude tekens die nog van een vorige keer klaarstaan, weggooien
+    while toetsenbord.poll(0):
+        stdin.buffer.read(1)
 
     # Geheugen van de PID-regeling
     doel_hoek = 0          # de richting die de robot moet aanhouden
@@ -123,186 +353,260 @@ def vrij_rijden():
     leeg = b"0" * AANTAL_TEKENS
     cmd = leeg
     vorige_cmd = leeg
+    binnen = b""             # AANGEPAST: hier komen de tekens één voor één binnen
     stapmodus = False
+    stapgrootte = "2"
+    huidige_soort = None     # AANGEPAST: welke soort beweging de huidige stap is
     teller = 0
 
     laatste_bericht = StopWatch()
     veiligheidsstop_gedaan = False
 
-    print("Klaar om te rijden. Start nu stuur_robot.py op je computer.")
+    print("Vrij rijden gestart. Opname loopt.")
+    print("PROTOCOL", PROTOCOL)
+    nieuwe_opname()
+    HUB.display.number(eerste_nummer)
     stdout.buffer.write(b"rdy")   # laat de computer weten: stuur maar
 
-    while True:
-        # --- VEILIGHEID 1: de knop op de hub stopt ALTIJD ---
-        if Button.CENTER in HUB.buttons.pressed():
-            print("Gestopt met de knop op de hub.")
-            stop_alles()
-            return
+    try:
+        while True:
+            # --- VEILIGHEID 1: de knop op de hub stopt ALTIJD ---
+            if Button.CENTER in HUB.buttons.pressed():
+                print("Gestopt met de knop op de hub.")
+                break
 
-        # --- NIEUW COMMANDO? (zonder te wachten: de lus loopt gewoon door) ---
-        if toetsenbord.poll(0):
-            cmd = stdin.buffer.read(AANTAL_TEKENS)
-            stdout.buffer.write(b"rdy")
-            laatste_bericht.reset()
-            veiligheidsstop_gedaan = False
+            # --- NIEUW COMMANDO? (zonder te wachten: de lus loopt gewoon door) ---
+            # AANGEPAST: elk commando eindigt nu met een Enter-teken (\n).
+            # We lezen teken per teken en wachten nooit op tekens die
+            # misschien niet komen. Zo kan de hub nooit vastlopen.
+            while toetsenbord.poll(0):
+                teken = stdin.buffer.read(1)
+                if teken == b"\n":
+                    if len(binnen) == AANTAL_TEKENS:
+                        cmd = binnen
+                        laatste_bericht.reset()
+                        veiligheidsstop_gedaan = False
+                    binnen = b""
+                    stdout.buffer.write(b"rdy")
+                    break     # eerst dit commando verwerken
+                binnen += teken
 
-        # --- VEILIGHEID 2: te lang niets ontvangen = stoppen ---
-        if laatste_bericht.time() > VEILIGHEID_TIMEOUT:
-            if not veiligheidsstop_gedaan:
-                print("Geen verbinding: motoren uit veiligheid gestopt.")
-                stop_alles()
-                veiligheidsstop_gedaan = True
-            vorige_cmd = leeg
-            wait(LUS_TIJD)
-            continue
+            # --- VEILIGHEID 2: te lang niets ontvangen = stoppen ---
+            if laatste_bericht.time() > VEILIGHEID_TIMEOUT:
+                if not veiligheidsstop_gedaan:
+                    print("Geen verbinding: motoren uit veiligheid gestopt.")
+                    if binnen:
+                        # Er komen wel tekens binnen, maar geen geldige commando's
+                        print("Past stuur_robot.py niet bij deze code? Download de nieuwste.")
+                    stop_alles()
+                    veiligheidsstop_gedaan = True
+                vorige_cmd = leeg
+                wait(LUS_TIJD)
+                continue
 
-        if ingedrukt(cmd, STOPPEN):
-            break
+            if ingedrukt(cmd, STOPPEN):
+                break
 
-        # Echte verstreken tijd sinds de vorige lus, nodig voor de PID
-        nu = klok.time()
-        dt = (nu - vorige_tijd) / 1000
-        if dt <= 0:
-            dt = 0.001
-        vorige_tijd = nu
+            # Echte verstreken tijd sinds de vorige lus, nodig voor de PID
+            nu = klok.time()
+            dt = (nu - vorige_tijd) / 1000
+            if dt <= 0:
+                dt = 0.001
+            vorige_tijd = nu
 
-        hoek = HUB.imu.heading()
+            hoek = HUB.imu.heading()
 
-        # Hoe snel draait de robot nu? Uitgemiddeld, zodat ruis geen stoten geeft.
-        draaisnelheid = (hoek - vorige_hoek) / dt
-        draaisnelheid_gefilterd = 0.8 * draaisnelheid_gefilterd + 0.2 * draaisnelheid
-        vorige_hoek = hoek
+            # Hoe snel draait de robot nu? Uitgemiddeld, zodat ruis geen stoten geeft.
+            draaisnelheid = (hoek - vorige_hoek) / dt
+            draaisnelheid_gefilterd = 0.8 * draaisnelheid_gefilterd + 0.2 * draaisnelheid
+            vorige_hoek = hoek
 
-        if net_ingedrukt(cmd, vorige_cmd, NULPUNT):
-            DRIVE_BASE.stop()
-            nulpunt_zetten()
-            hoek = 0
-            vorige_hoek = 0
-            doel_hoek = 0
-            integraal = 0
-            print("Nulpunt gezet.")
+            # --- AANGEPAST (nieuw): de opname ---
+            # Moet de robot een stilstaande actie doen (opname wissen, stap
+            # afsluiten, ongedaan maken)? Dan is 'iets_gedaan' True en zetten
+            # we daarna de PID opnieuw klaar.
+            iets_gedaan = False
 
-        if net_ingedrukt(cmd, vorige_cmd, STAPMODUS):
-            stapmodus = not stapmodus
-            DRIVE_BASE.stop()
-            if stapmodus:
-                print("Stapmodus AAN")
-            else:
-                print("Stapmodus UIT")
+            if net_ingedrukt(cmd, vorige_cmd, NULPUNT):
+                # R: helemaal opnieuw beginnen op de plek waar de robot nu staat
+                wacht_tot_stilstand()
+                nieuwe_opname()
+                huidige_soort = None
+                iets_gedaan = True
 
-        if stapmodus:
-            # --- STAPMODUS: elke tik = één kleine, exacte beweging ---
-            if net_ingedrukt(cmd, vorige_cmd, VOORUIT):
-                DRIVE_BASE.straight(STAP_MM)
-            elif net_ingedrukt(cmd, vorige_cmd, ACHTERUIT):
-                DRIVE_BASE.straight(-STAP_MM)
-            elif net_ingedrukt(cmd, vorige_cmd, LINKS):
-                DRIVE_BASE.turn(-STAP_GRADEN)
-            elif net_ingedrukt(cmd, vorige_cmd, RECHTS):
-                DRIVE_BASE.turn(STAP_GRADEN)
+            if net_ingedrukt(cmd, vorige_cmd, STAP_KLAAR):
+                # SPATIE of ENTER: de huidige stap nu afsluiten
+                sluit_stap()
+                huidige_soort = None
+                print("KLAAR")      # de computer weet zo dat alles binnen is
+                iets_gedaan = True
 
-            if net_ingedrukt(cmd, vorige_cmd, LA_PLUS):
-                LEFT_ATTACHMENT.run_angle(100, STAP_ATTACHMENT)
-            elif net_ingedrukt(cmd, vorige_cmd, LA_MIN):
-                LEFT_ATTACHMENT.run_angle(100, -STAP_ATTACHMENT)
-            if net_ingedrukt(cmd, vorige_cmd, RA_PLUS):
-                RIGHT_ATTACHMENT.run_angle(100, STAP_ATTACHMENT)
-            elif net_ingedrukt(cmd, vorige_cmd, RA_MIN):
-                RIGHT_ATTACHMENT.run_angle(100, -STAP_ATTACHMENT)
+            if net_ingedrukt(cmd, vorige_cmd, ONGEDAAN):
+                # BACKSPACE: laatste stap wissen en terugrijden
+                laatste_stap_ongedaan()
+                huidige_soort = None
+                iets_gedaan = True
 
-            # na een stap: de huidige richting is de nieuwe doelrichting
-            doel_hoek = HUB.imu.heading()
-            vorige_hoek = doel_hoek
-            integraal = 0
+            # Begin je aan een ANDERE soort beweging? Dan is de vorige stap klaar.
+            soort = soort_beweging(cmd)
+            if soort is not None and soort != huidige_soort:
+                if huidige_soort is not None:
+                    sluit_stap()
+                    iets_gedaan = True
+                huidige_soort = soort
 
-        else:
-            # --- GEWOON RIJDEN: toets ingedrukt houden ---
-            if ingedrukt(cmd, PRECISIE):
-                rij = PRECIEZE_RIJSNELHEID
-                draai = PRECIEZE_DRAAISNELHEID
-                att = PRECIEZE_ATTACHMENT_SNELHEID
-            else:
-                rij = RIJSNELHEID
-                draai = DRAAISNELHEID
-                att = ATTACHMENT_SNELHEID
-
-            snelheid = 0
-            draaien = 0
-            if ingedrukt(cmd, VOORUIT):
-                snelheid += rij
-            if ingedrukt(cmd, ACHTERUIT):
-                snelheid -= rij
-            if ingedrukt(cmd, LINKS):
-                draaien -= draai
-            if ingedrukt(cmd, RECHTS):
-                draaien += draai
-
-            if not GEBRUIK_EIGEN_PID or draaien != 0 or snelheid == 0:
-                # Ingebouwde regeling, of je draait bewust, of je staat stil:
-                # de richting waar de robot NU naar kijkt wordt het nieuwe doel.
+            if iets_gedaan:
+                # De robot stond even stil: de richting van nu is het nieuwe
+                # doel, en de PID begint opnieuw (anders maakt hij een sprong).
+                hoek = HUB.imu.heading()
+                vorige_hoek = hoek
                 doel_hoek = hoek
                 integraal = 0
-                DRIVE_BASE.drive(snelheid, draaien)
+                draaisnelheid_gefilterd = 0
+                vorige_tijd = klok.time()
+
+            # AANGEPAST (nieuw): stapgrootte kiezen met de cijfertoetsen.
+            # cmd[STAPGROOTTE] is een getal (de code van het teken), chr()
+            # maakt daar weer het teken "1", "2" of "3" van.
+            keuze = chr(cmd[STAPGROOTTE])
+            if keuze in STAPGROOTTES and keuze != stapgrootte:
+                stapgrootte = keuze
+                print("Stapgrootte", keuze, ":", STAPGROOTTES[keuze])
+
+            if net_ingedrukt(cmd, vorige_cmd, STAPMODUS):
+                stapmodus = not stapmodus
+                DRIVE_BASE.stop()
+                if stapmodus:
+                    print("Stapmodus AAN")
+                else:
+                    print("Stapmodus UIT")
+
+            if stapmodus:
+                # --- STAPMODUS: elke tik = één kleine, exacte beweging ---
+                stap_mm, stap_graden, stap_att = STAPGROOTTES[stapgrootte]
+                # AANGEPAST: de safe_-versies, zodat de knop op de hub ook
+                # tijdens een stap kan stoppen
+                if net_ingedrukt(cmd, vorige_cmd, VOORUIT):
+                    safe_straight(stap_mm)
+                elif net_ingedrukt(cmd, vorige_cmd, ACHTERUIT):
+                    safe_straight(-stap_mm)
+                elif net_ingedrukt(cmd, vorige_cmd, LINKS):
+                    safe_turn(-stap_graden)
+                elif net_ingedrukt(cmd, vorige_cmd, RECHTS):
+                    safe_turn(stap_graden)
+
+                if net_ingedrukt(cmd, vorige_cmd, LA_PLUS):
+                    safe_run_angle(LEFT_ATTACHMENT, 100, stap_att)
+                elif net_ingedrukt(cmd, vorige_cmd, LA_MIN):
+                    safe_run_angle(LEFT_ATTACHMENT, 100, -stap_att)
+                if net_ingedrukt(cmd, vorige_cmd, RA_PLUS):
+                    safe_run_angle(RIGHT_ATTACHMENT, 100, stap_att)
+                elif net_ingedrukt(cmd, vorige_cmd, RA_MIN):
+                    safe_run_angle(RIGHT_ATTACHMENT, 100, -stap_att)
+
+                # na een stap: de huidige richting is de nieuwe doelrichting
+                doel_hoek = HUB.imu.heading()
+                vorige_hoek = doel_hoek
+                integraal = 0
+
             else:
-                # Rechtdoor rijden met onze eigen PID
-                fout = doel_hoek - hoek
-                if abs(fout) < DODE_ZONE:
-                    fout = 0   # zo klein dat het ruis is: niet op reageren
+                # --- GEWOON RIJDEN: toets ingedrukt houden ---
+                if ingedrukt(cmd, PRECISIE):
+                    rij = PRECIEZE_RIJSNELHEID
+                    draai = PRECIEZE_DRAAISNELHEID
+                    att = PRECIEZE_ATTACHMENT_SNELHEID
+                else:
+                    rij = RIJSNELHEID
+                    draai = DRAAISNELHEID
+                    att = ATTACHMENT_SNELHEID
 
-                integraal += fout * dt
-                if integraal > MAX_INTEGRAAL:
-                    integraal = MAX_INTEGRAAL
-                if integraal < -MAX_INTEGRAAL:
-                    integraal = -MAX_INTEGRAAL
+                snelheid = 0
+                draaien = 0
+                if ingedrukt(cmd, VOORUIT):
+                    snelheid += rij
+                if ingedrukt(cmd, ACHTERUIT):
+                    snelheid -= rij
+                if ingedrukt(cmd, LINKS):
+                    draaien -= draai
+                if ingedrukt(cmd, RECHTS):
+                    draaien += draai
 
-                # D-deel: remt af als de robot al aan het terugdraaien is.
-                # We gebruiken de uitgemiddelde draaisnelheid, niet het
-                # verschil tussen twee losse metingen (dat geeft stoten).
-                afgeleide = -draaisnelheid_gefilterd
+                if not GEBRUIK_EIGEN_PID or draaien != 0 or snelheid == 0:
+                    # Ingebouwde regeling, of je draait bewust, of je staat stil:
+                    # de richting waar de robot NU naar kijkt wordt het nieuwe doel.
+                    doel_hoek = hoek
+                    integraal = 0
+                    DRIVE_BASE.drive(snelheid, draaien)
+                else:
+                    # Rechtdoor rijden met onze eigen PID
+                    fout = doel_hoek - hoek
+                    if abs(fout) < DODE_ZONE:
+                        fout = 0   # zo klein dat het ruis is: niet op reageren
 
-                correctie = KP * fout + KI * integraal + KD * afgeleide
-                if correctie > MAX_CORRECTIE:
-                    correctie = MAX_CORRECTIE
-                if correctie < -MAX_CORRECTIE:
-                    correctie = -MAX_CORRECTIE
+                    integraal += fout * dt
+                    if integraal > MAX_INTEGRAAL:
+                        integraal = MAX_INTEGRAAL
+                    if integraal < -MAX_INTEGRAAL:
+                        integraal = -MAX_INTEGRAAL
 
-                DRIVE_BASE.drive(snelheid, correctie)
+                    # D-deel: remt af als de robot al aan het terugdraaien is.
+                    # We gebruiken de uitgemiddelde draaisnelheid, niet het
+                    # verschil tussen twee losse metingen (dat geeft stoten).
+                    afgeleide = -draaisnelheid_gefilterd
 
-            # Attachments: run() houdt de snelheid constant, ook heel traag
-            if ingedrukt(cmd, LA_PLUS):
-                LEFT_ATTACHMENT.run(att)
-            elif ingedrukt(cmd, LA_MIN):
-                LEFT_ATTACHMENT.run(-att)
-            else:
-                LEFT_ATTACHMENT.hold()
+                    correctie = KP * fout + KI * integraal + KD * afgeleide
+                    if correctie > MAX_CORRECTIE:
+                        correctie = MAX_CORRECTIE
+                    if correctie < -MAX_CORRECTIE:
+                        correctie = -MAX_CORRECTIE
 
-            if ingedrukt(cmd, RA_PLUS):
-                RIGHT_ATTACHMENT.run(att)
-            elif ingedrukt(cmd, RA_MIN):
-                RIGHT_ATTACHMENT.run(-att)
-            else:
-                RIGHT_ATTACHMENT.hold()
+                    DRIVE_BASE.drive(snelheid, correctie)
 
-        vorige_cmd = cmd
+                # Attachments: run() houdt de snelheid constant, ook heel traag
+                if ingedrukt(cmd, LA_PLUS):
+                    LEFT_ATTACHMENT.run(att)
+                elif ingedrukt(cmd, LA_MIN):
+                    LEFT_ATTACHMENT.run(-att)
+                else:
+                    LEFT_ATTACHMENT.hold()
 
-        # Om de 10 lussen (= 10 keer per seconde) de waarden doorsturen
-        teller += 1
-        if teller % 10 == 0:
-            afstand = round(DRIVE_BASE.distance())
-            hoek_rond = round(HUB.imu.heading())   # gyro: zelfde meting als in de missies
-            links = round(LEFT_ATTACHMENT.angle())
-            rechts = round(RIGHT_ATTACHMENT.angle())
-            HUB.display.number(afstand)
-            print("afstand=%d hoek=%d links=%d rechts=%d" % (afstand, hoek_rond, links, rechts))
+                if ingedrukt(cmd, RA_PLUS):
+                    RIGHT_ATTACHMENT.run(att)
+                elif ingedrukt(cmd, RA_MIN):
+                    RIGHT_ATTACHMENT.run(-att)
+                else:
+                    RIGHT_ATTACHMENT.hold()
 
-        wait(LUS_TIJD)
+            vorige_cmd = cmd
 
+            # Om de 10 lussen (= 10 keer per seconde) doorsturen hoeveel de
+            # robot bewogen is in de HUIDIGE stap.
+            # AANGEPAST: vroeger de totalen sinds het nulpunt, nu enkel deze stap.
+            teller += 1
+            if teller % 10 == 0:
+                afstand, hoek_stap, links, rechts = verschil_sinds(begin_van_stap)
+                print("nu afstand=%d hoek=%d links=%d rechts=%d"
+                      % (afstand, hoek_stap, links, rechts))
+
+            wait(LUS_TIJD)
+
+    except MissionStop:
+        # De middelste knop werd ingedrukt tijdens een stap (safe_...)
+        print("Gestopt met de knop op de hub.")
+
+    # De laatste beweging ook nog als stap bewaren
     stop_alles()
-    print("Gestopt.")
+    sluit_stap()
+    print("EINDE")
+    stop_alles()
 
 
-vrij_rijden()
-# Extra veiligheidsnet
-DRIVE_BASE.stop()
-LEFT_ATTACHMENT.stop()
-RIGHT_ATTACHMENT.stop()
+# AANGEPAST: dit stuk loopt ENKEL als je vrij_rijden.py zelf start. Haalt
+# main.py dit bestand op met 'import', dan is __name__ niet "__main__" en
+# start het rijden pas als je in het menu de letter V kiest.
+if __name__ == "__main__":
+    vrij_rijden()
+    # Extra veiligheidsnet
+    DRIVE_BASE.stop()
+    LEFT_ATTACHMENT.stop()
+    RIGHT_ATTACHMENT.stop()

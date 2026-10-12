@@ -7,11 +7,14 @@
 #   MIDDEN                : de gekozen missie starten
 #   MIDDEN tijdens rijden : NOODSTOP
 #   LINKS + RECHTS samen  : testmodus (een stukje van een missie testen)
+#   letter V              : rijden met het toetsenbord (met stuur_robot.py)
 # Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
 
 from supportcode import *
 from missies import MISSIE_STAPPEN
+# AANGEPAST (nieuw): het toetsenbord-rijden zit nu ook in het menu
+from vrij_rijden import vrij_rijden
 
 # Lijst van programma's
 # AANGEPAST: vroeger stond hier PROGRAM_LIST = ['A', 'B', 'C', 'D', 'E'].
@@ -20,7 +23,15 @@ from missies import MISSIE_STAPPEN
 # automatisch uit de letters in MISSIE_STAPPEN. Een nieuwe missie toevoegen
 # doe je dus enkel nog in missies.py.
 # sorted() zet de letters in alfabetische volgorde: A, B, C, ...
-PROGRAM_LIST = sorted(MISSIE_STAPPEN)
+MISSIE_LETTERS = sorted(MISSIE_STAPPEN)
+
+# AANGEPAST (nieuw): na de missies staat in het menu nog de letter V van
+# "vrij rijden". Kies je V en druk je MIDDEN, dan kan je de robot besturen
+# met het toetsenbord (stuur_robot.py op de computer). Zo hoef je niet meer
+# van programma te wisselen: main.py blijft gewoon op de hub staan.
+# Een lijst + een lijst plakt ze aan elkaar: ['A', 'B'] + ['V'] = ['A', 'B', 'V']
+VRIJ_RIJDEN = "V"
+PROGRAM_LIST = MISSIE_LETTERS + [VRIJ_RIJDEN]
 ACTIVEPROGRAM = 0
 
 # Zet de standaard systeem-stopknop uit, wij regelen het nu zelf
@@ -46,7 +57,7 @@ print("githobotics code versie", VERSIE)
 # Een dictionary: letter van de missie -> lijst van fouten in die missie.
 # Missies zonder fouten komen hier niet in.
 FOUTE_MISSIES = {}
-for letter in PROGRAM_LIST:
+for letter in MISSIE_LETTERS:   # AANGEPAST: V is geen missie, die slaan we over
     fouten = controleer_stappen(MISSIE_STAPPEN[letter])
     if fouten:   # een lijst met iets erin telt als True
         FOUTE_MISSIES[letter] = fouten
@@ -236,8 +247,11 @@ while True:
 
     HUB.display.char(PROGRAM_LIST[ACTIVEPROGRAM])
     # AANGEPAST: rood lampje als deze missie een fout bevat, anders blauw
+    # (en wit voor V, het rijden met het toetsenbord)
     if PROGRAM_LIST[ACTIVEPROGRAM] in FOUTE_MISSIES:
         HUB.light.on(Color.RED)
+    elif PROGRAM_LIST[ACTIVEPROGRAM] == VRIJ_RIJDEN:
+        HUB.light.on(Color.WHITE)
     else:
         HUB.light.on(Color.BLUE)
 
@@ -246,7 +260,9 @@ while True:
     # --- TEST-MODUS: beide knoppen tegelijk ---
     if Button.LEFT in pressed and Button.RIGHT in pressed:
         wacht_tot_losgelaten()
-        test_modus()
+        # AANGEPAST: V is geen missie, die kan je niet testen
+        if PROGRAM_LIST[ACTIVEPROGRAM] != VRIJ_RIJDEN:
+            test_modus()
 
     # --- NAVIGATIE ---
     elif Button.LEFT in pressed:
@@ -265,6 +281,12 @@ while True:
         HUB.light.on(Color.ORANGE)
         wacht_tot_losgelaten()
 
+        # AANGEPAST (nieuw): V = rijden met het toetsenbord
+        if PROGRAM_LIST[ACTIVEPROGRAM] == VRIJ_RIJDEN:
+            vrij_rijden()
+            wacht_tot_losgelaten()   # de stopknop eerst loslaten
+            continue
+
         # AANGEPAST: een missie met een fout starten we niet. We tonen de
         # fout opnieuw en gaan terug naar het menu.
         if PROGRAM_LIST[ACTIVEPROGRAM] in FOUTE_MISSIES:
@@ -281,6 +303,9 @@ while True:
             # --- EINDE VAN MISSIE (SUCCES) ---
             HUB.speaker.beep(600, 100)
             ACTIVEPROGRAM = next_program(ACTIVEPROGRAM, PROGRAM_LIST)
+            # AANGEPAST: na de laatste missie meteen terug naar A, niet naar V
+            if PROGRAM_LIST[ACTIVEPROGRAM] == VRIJ_RIJDEN:
+                ACTIVEPROGRAM = next_program(ACTIVEPROGRAM, PROGRAM_LIST)
             safe_wait(500)
 
         except MissionStop:
