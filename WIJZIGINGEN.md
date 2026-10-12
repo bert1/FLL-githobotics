@@ -25,6 +25,8 @@ Rijden met het toetsenbord is nu veel handiger om missies te maken: de robot nee
 - **BACKSPACE** wist de laatste stap en de robot rijdt terug, zodat je opnieuw kan proberen.
 - **SPATIE** sluit de huidige stap af, **ENTER** toont daarna ook de hele opname. (SPATIE zet niet meer zelf het nulpunt: dat is niet meer nodig.)
 - **R** wist de opname en begint opnieuw.
+- **P** speelt alles af op wedstrijdsnelheid, zoals in de echte missie. Zo zie je meteen of het ook snel goed gaat.
+- **Verder vanaf een missie:** laat de robot in de testmodus een stuk van een missie rijden en druk daarna RECHTS (als het lampje groen is). Je rijdt dan verder met het toetsenbord vanaf de plek waar de missie eindigt. De nieuwe stappen krijgen meteen de juiste nummers, en `opname.txt` zegt waar je ze moet plakken.
 - **Bochten:** Z en Q (of D) samen wordt een `("curve", straal, graden)`-stap.
 - **Stapgrootte** in de stapmodus kies je met de toetsen 1, 2 en 3 (fijn, normaal, grof).
 - De metingen van de huidige stap staan op één regel die zich steeds aanpast, in plaats van 10 nieuwe regels per seconde.

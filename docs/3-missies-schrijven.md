@@ -69,7 +69,9 @@ Meer hoeft niet: het menu in `main.py` neemt de letter F vanzelf over.
 
 ## Handige tips
 
-**Een missie opnemen.** Je hoeft niet te gokken hoeveel mm de robot moet rijden. Kies in het menu de letter V en rij met het toetsenbord de hele missie. Elke beweging wordt een stap, en alle stappen staan klaar in `opname.txt` op de computer. Die plak je zo in je missie. Zie [vrij_rijden.py en stuur_robot.py](4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord).
+**Een missie opnemen.** Je hoeft niet te gokken hoeveel mm de robot moet rijden. Kies in het menu de letter V en rij met het toetsenbord de hele missie. Elke beweging wordt een stap, en alle stappen staan klaar in `opname.txt` op de computer. Die plak je zo in je missie. Met P speel je alles meteen af op wedstrijdsnelheid. Zie [vrij_rijden.py en stuur_robot.py](4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord).
+
+**Het volgende stuk van een missie opnemen.** Laat de robot in de testmodus het begin van de missie rijden en druk daarna RECHTS: je rijdt verder met het toetsenbord, vanaf de plek waar de missie eindigt. Zie [Verder vanaf een missie](4-uitleg-code.md#verder-vanaf-een-missie).
 
 **Een stukje testen.** Druk in het menu LINKS en RECHTS samen in voor de testmodus. Dan rijdt de robot maar een paar stappen. Zie [de testmodus](4-uitleg-code.md#mainpy-het-wedstrijdprogramma).
 

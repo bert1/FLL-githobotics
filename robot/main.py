@@ -115,8 +115,9 @@ def wacht_op_keuze():
     """Na het uitvoeren van een teststukje: wacht op wat de gebruiker nu wil.
     - Kort op CENTER drukken: dezelfde reeks nog eens uitvoeren
     - LEFT+RIGHT tegelijk: een nieuwe startstap en aantal kiezen
+    - RIGHT alleen: verder met het toetsenbord (AANGEPAST, nieuw)
     - CENTER 1,5 seconde ingedrukt houden: de testmodus verlaten
-    Geeft 'herhaal', 'nieuw' of 'stop' terug."""
+    Geeft 'herhaal', 'nieuw', 'toetsenbord' of 'stop' terug."""
     while True:
         pressed = HUB.buttons.pressed()
         if Button.CENTER in pressed:
@@ -126,9 +127,20 @@ def wacht_op_keuze():
                 if timer.time() > 1500:
                     return 'stop'
             return 'herhaal'
-        elif Button.LEFT in pressed and Button.RIGHT in pressed:
-            wacht_tot_losgelaten()
-            return 'nieuw'
+        elif Button.LEFT in pressed or Button.RIGHT in pressed:
+            # AANGEPAST: twee knoppen druk je nooit op precies hetzelfde
+            # moment in. Daarom onthouden we ALLE knoppen die we zien tot je
+            # alles loslaat, en beslissen we pas dan.
+            gezien = set()
+            while HUB.buttons.pressed():
+                for knop in HUB.buttons.pressed():
+                    gezien.add(knop)
+                wait(10)
+            if Button.LEFT in gezien and Button.RIGHT in gezien:
+                return 'nieuw'
+            if Button.RIGHT in gezien:
+                return 'toetsenbord'
+            # enkel LEFT: daar doen we niets mee, gewoon verder wachten
         wait(10)
 
 
@@ -238,6 +250,16 @@ def test_modus():
                 return
             elif keuze == 'nieuw':
                 break  # terug naar buitenste lus: nieuwe start/aantal kiezen
+            elif keuze == 'toetsenbord':
+                # AANGEPAST (nieuw): de robot staat nu waar dit stuk van de
+                # missie eindigt. Neem van hieruit het volgende stuk op met
+                # het toetsenbord. vrij_rijden krijgt mee welke stappen de
+                # robot al reed, zodat P (afspelen) alles kan afspelen en
+                # de nieuwe stappen de juiste nummers krijgen.
+                # stappen[start:eind] = de stappen van start tot (zonder) eind
+                vrij_rijden(stappen[start:eind], actieve_letter, start)
+                wacht_tot_losgelaten()
+                return   # terug naar het menu
             # anders ('herhaal'): gewoon opnieuw door deze lus
 
 

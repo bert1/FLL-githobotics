@@ -63,6 +63,7 @@ Na een geslaagde missie springt het menu vanzelf naar de volgende letter. Na de 
 3. De robot rijdt dat stukje (lampje oranje), daarna wordt het lampje **groen**:
    - MIDDEN kort: hetzelfde stukje nog eens
    - LINKS + RECHTS: een ander stukje kiezen
+   - RECHTS alleen: **verder met het toetsenbord** vanaf de plek waar de robot nu staat (zie [Verder vanaf een missie](#verder-vanaf-een-missie))
    - MIDDEN 1,5 seconde ingedrukt: testmodus verlaten
 
 **Eén stap bijstellen:** kies je precies 1 stap en is dat een `straight` of `turn`, dan wordt het lampje **lichtblauw**. Met LINKS/RECHTS verander je de waarde telkens met 5, met MIDDEN probeer je het meteen. Dit verandert de code zelf **niet**: schrijf het getal op en pas het daarna aan in `missies.py`.
@@ -110,6 +111,7 @@ Je kan ook nog altijd `vrij_rijden.py` zelf op de hub laden en starten, zoals vr
 | ENTER | de huidige stap afsluiten en de hele opname tonen |
 | BACKSPACE | de laatste stap wissen: de robot rijdt terug naar waar hij voor die stap stond |
 | R | de opname wissen en opnieuw beginnen op de plek waar de robot nu staat |
+| P | alles **afspelen** op wedstrijdsnelheid (zet de robot eerst terug op de startplek) |
 | ESC | stoppen |
 | MIDDEN op de hub | stopt altijd meteen |
 
@@ -139,8 +141,28 @@ Terwijl je rijdt, zie je onderaan in de terminal hoeveel de **huidige** stap al 
 
 Kopieer de stappen in je missie in `missies.py`, boven `("call", stop_attachments)`. Test daarna met de testmodus. Bij een nieuwe opname wordt `opname.txt` overschreven: kopieer dus eerst wat je wil houden.
 
+**Afspelen met P.** Met het toetsenbord rijdt de robot traag. In de missie rijdt hij veel sneller, en dan kan hij net iets anders uitkomen (bijvoorbeeld als hij tegen iets aan botst). Daarom kan je alles meteen afspelen zoals in de echte missie:
+
+1. Zet de robot met de hand terug op de startplek.
+2. Druk P. De robot rijdt alle opgenomen stappen op wedstrijdsnelheid, met de gyro aan (lampje oranje). MIDDEN op de hub stopt het afspelen.
+3. Daarna rijd je gewoon verder met het toetsenbord. Nieuwe stappen komen achteraan bij de opname.
+
+Gaat het niet goed? Rij terug naar de juiste plek, druk BACKSPACE om de foute stap te wissen, en neem hem opnieuw op.
+
+### Verder vanaf een missie
+
+Is het begin van een missie al klaar en wil je enkel het **volgende stuk** opnemen? Dan hoef je de robot niet met de hand op de juiste plek te zetten:
+
+1. Start `stuur_robot.py` op de computer en `main.py` op de hub (zoals hierboven).
+2. Kies in het menu de missie, bijvoorbeeld B, en ga naar de testmodus (LINKS + RECHTS).
+3. Kies de startstap (meestal 0) en hoeveel stappen de robot moet rijden, bijvoorbeeld 5. De robot rijdt stap 0 tot en met 4.
+4. Het lampje wordt groen. Druk **RECHTS** alleen: het lampje wordt wit en je rijdt verder met het toetsenbord.
+5. De nieuwe stappen krijgen meteen de juiste nummers (hier vanaf stap 5). Bovenaan `opname.txt` staat waar je ze moet plakken: *"Plak deze stappen in MISSIE_B, net na stap 4."*
+6. Met P speel je de missie af vanaf de startstap **plus** de nieuwe stappen. Zet de robot dan eerst terug waar hij stond bij het begin van de test.
+
+Als je stopt (ESC of MIDDEN), kom je terug in het menu.
+
 **Goed om te weten:**
-- Met het toetsenbord rijdt de robot traag. In de missie rijdt hij sneller, en dan kan hij net iets anders uitkomen (bijvoorbeeld als hij tegen iets aan botst). Test dus altijd in de testmodus.
 - Heel kleine bewegingen (minder dan 3 mm of 1 graad) worden geen stap. Die tellen mee bij de volgende stap.
 - De snelheid in een opgenomen attachment-stap is altijd 200. Pas ze daarna gerust aan in `missies.py`.
 

@@ -41,7 +41,7 @@ LOGBESTAND = "rijlog.txt"
 OPNAMEBESTAND = "opname.txt"
 
 # AANGEPAST (nieuw): moet hetzelfde getal zijn als PROTOCOL in vrij_rijden.py
-PROTOCOL = 2
+PROTOCOL = 3
 
 # --- TOETSEN ---
 # Z / S       : vooruit / achteruit   (AZERTY-toetsenbord)
@@ -56,6 +56,8 @@ PROTOCOL = 2
 # ENTER       : de huidige stap afsluiten en de hele opname tonen
 # BACKSPACE   : laatste stap wissen, de robot rijdt terug
 # R           : opname wissen en opnieuw beginnen (nulpunt hier)
+# P           : alles afspelen op wedstrijdsnelheid (zet de robot eerst
+#               terug op de startplek!)
 # ESC         : programma stoppen
 
 # Welke toets op het toetsenbord welke actie doet, zolang je ze INGEDRUKT
@@ -71,6 +73,11 @@ TOETSEN = {
     "o": "rechts_att_plus",
     "l": "rechts_att_min",
     "m": "stapmodus",
+}
+
+# AANGEPAST (nieuw): letters die maar ÉÉN keer iets doen als je ze indrukt
+EENMALIGE_TOETSEN = {
+    "p": "afspelen",
 }
 
 # AANGEPAST (nieuw): de cijfertoetsen voor de stapgrootte. Op een AZERTY-
@@ -96,6 +103,7 @@ toon_alles_na_klaar = False     # True = na de volgende KLAAR de hele opname ton
 # AANGEPAST (nieuw): een kopie van de opname op de hub
 opname = []                     # de stappen als tekst, bv. '("straight", 412),'
 eerste_nummer = 0               # het stapnummer van de eerste stap
+vooraf_uitleg = ""              # uit de testmodus: welke missie de robot al reed
 live_regel_getoond = False      # staat er nu een "nu: ..."-regel op het scherm?
 
 
@@ -134,6 +142,8 @@ def opname_als_tekst():
         "# Kopieer de stappen naar je missie in missies.py, boven de regel",
         '# ("call", stop_attachments). Het nummer achter # is het stapnummer.',
     ]
+    if vooraf_uitleg:
+        regels.append(vooraf_uitleg)
     for i, stap in enumerate(opname):
         regels.append("    " + stap.ljust(48) + "# stap " + str(eerste_nummer + i))
     if not opname:
@@ -152,7 +162,7 @@ def verwerk_hub_regel(tekst):
     """AANGEPAST: leest een regel van de hub. Regels die beginnen met
     NIEUW, STAP of WEG houden de opname bij, "nu ..." toont de metingen.
     Geeft True terug als de regel verwerkt is, anders False."""
-    global eerste_nummer, toon_alles_na_klaar
+    global eerste_nummer, toon_alles_na_klaar, vooraf_uitleg
     delen = tekst.split(" ", 2)    # hoogstens in 3 stukken knippen
 
     if delen[0] == "nu":
@@ -160,7 +170,17 @@ def verwerk_hub_regel(tekst):
         return True
 
     if delen[0] == "NIEUW" and len(delen) >= 2:
-        eerste_nummer = int(delen[1])
+        # "NIEUW 0" of, uit de testmodus, "NIEUW 5 B 0": nieuwe stappen
+        # vanaf nummer 5, nadat de robot missie B vanaf stap 0 reed
+        stukken = tekst.split()
+        eerste_nummer = int(stukken[1])
+        if len(stukken) >= 4:
+            vooraf_uitleg = ("# De robot reed eerst MISSIE_%s van stap %s tot en met stap %d.\n"
+                             "# Plak deze stappen in MISSIE_%s, net na stap %d."
+                             % (stukken[2], stukken[3], eerste_nummer - 1,
+                                stukken[2], eerste_nummer - 1))
+        else:
+            vooraf_uitleg = ""
         opname.clear()
         schrijf_opname()
         toon("Nieuwe opname. De eerste stap krijgt nummer " + str(eerste_nummer) + ".")
@@ -230,6 +250,9 @@ def on_press(key):
 
     if not isinstance(naam, str):
         return
+    if naam in EENMALIGE_TOETSEN:
+        eenmalige_acties.add(EENMALIGE_TOETSEN[naam])
+        return
     if naam in STAPGROOTTE_TOETSEN:
         stapgrootte = STAPGROOTTE_TOETSEN[naam]
         return
@@ -260,7 +283,7 @@ def on_release(key):
 
 
 def maak_commando():
-    """Bouwt het commando voor de hub: 14 tekens '1' of '0', dan de
+    """Bouwt het commando voor de hub: 15 tekens '1' of '0', dan de
     stapgrootte ("1", "2" of "3") en een Enter-teken (\\n) op het einde.
     De volgorde moet exact overeenkomen met vrij_rijden.py op de hub."""
     # AANGEPAST: de eenmalige acties worden één keer meegestuurd en daarna
@@ -271,7 +294,7 @@ def maak_commando():
 
     volgorde = ("vooruit", "links", "achteruit", "rechts", "nulpunt", "stoppen",
                 "links_att_plus", "links_att_min", "rechts_att_plus", "rechts_att_min",
-                "precisie", "stapmodus", "stap_klaar", "ongedaan")
+                "precisie", "stapmodus", "stap_klaar", "ongedaan", "afspelen")
     bits = "".join("1" if t in toetsen else "0" for t in volgorde)
     return (bits + stapgrootte + "\n").encode()
 
@@ -366,6 +389,7 @@ async def main():
         print("Z/S=vooruit/achteruit  Q/D=draaien  I/K=linker attachment  O/L=rechter attachment")
         print("SHIFT=extra traag  M=stapmodus  1/2/3=stapgrootte  R=nieuwe opname  ESC=stoppen")
         print("SPATIE=stap afsluiten  ENTER=hele opname tonen  BACKSPACE=laatste stap terug")
+        print("P=alles afspelen op wedstrijdsnelheid (robot eerst terug op de startplek)")
         print("De opname staat altijd in", OPNAMEBESTAND)
 
         while "stoppen" not in ingedrukte_toetsen:

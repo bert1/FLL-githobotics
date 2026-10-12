@@ -14,6 +14,10 @@
 #   1. vanuit het menu van main.py: kies de letter V (zo hoef je niet
 #      meer van programma te wisselen, main.py blijft op de hub staan)
 #   2. zoals vroeger: vrij_rijden.py zelf op de hub laden en starten
+#   3. AANGEPAST (nieuw): vanuit de testmodus van main.py, nadat de robot
+#      een stuk van een missie gereden heeft. Zo neem je het VOLGENDE
+#      stuk van die missie op, vanaf de plek waar de missie eindigt.
+# AANGEPAST (nieuw): met P speel je de opname af op wedstrijdsnelheid.
 # Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
 
@@ -21,8 +25,9 @@ import math
 
 from supportcode import (DRIVE_BASE, HUB, LEFT_ATTACHMENT, RIGHT_ATTACHMENT,
                          MissionStop, safe_straight, safe_turn, safe_curve,
-                         safe_run_angle)
-from pybricks.parameters import Button
+                         safe_run_angle, start_missie, voer_stappen_uit,
+                         wacht_tot_losgelaten)
+from pybricks.parameters import Button, Color
 from pybricks.tools import wait, StopWatch
 
 # Standaard MicroPython-modules voor het lezen van inkomende data
@@ -98,17 +103,18 @@ RA_PLUS = 8       # rechter attachment +
 RA_MIN = 9        # rechter attachment -
 PRECISIE = 10
 STAPMODUS = 11
-# AANGEPAST (nieuw): drie extra tekens
+# AANGEPAST (nieuw): vier extra tekens
 STAP_KLAAR = 12   # SPATIE of ENTER: de huidige stap nu afsluiten
 ONGEDAAN = 13     # BACKSPACE: laatste stap wissen en terugrijden
-STAPGROOTTE = 14  # dit teken is geen 0 of 1, maar "1", "2" of "3"
-AANTAL_TEKENS = 15
+AFSPELEN = 14     # P: alles afspelen op wedstrijdsnelheid
+STAPGROOTTE = 15  # dit teken is geen 0 of 1, maar "1", "2" of "3"
+AANTAL_TEKENS = 16
 
 # AANGEPAST (nieuw): het "versienummer" van de afspraken tussen computer en
 # hub. stuur_robot.py stuurt pas commando's als het dit nummer ziet. Zo kan
 # een oude stuur_robot.py nooit per ongeluk een nieuwe hub besturen (of
 # omgekeerd): dan zouden de toetsen door elkaar lopen.
-PROTOCOL = 2
+PROTOCOL = 3
 
 
 # =====================================================================
@@ -283,6 +289,11 @@ def keer_om(stap):
 opname = []              # de opgenomen stappen, bv. [("straight", 412), ...]
 eerste_nummer = 0        # welk stapnummer de eerste opgenomen stap krijgt
 begin_van_stap = {}      # metingen op het moment dat de huidige stap begon
+# Kwam je uit de testmodus? Dan staan hier de stappen van de missie die de
+# robot al gereden had, en van welke missie en welke stap ze komen.
+vooraf = []
+vooraf_missie = ""
+vooraf_start = 0
 
 
 def nieuwe_opname():
@@ -292,7 +303,12 @@ def nieuwe_opname():
     nulpunt_zetten()
     begin_van_stap = lees_metingen()
     # De computer luistert naar regels die beginnen met NIEUW, STAP of WEG
-    print("NIEUW", eerste_nummer)
+    if vooraf:
+        # bv. "NIEUW 5 B 0": nieuwe stappen vanaf nummer 5, na missie B
+        # vanaf stap 0
+        print("NIEUW", eerste_nummer, vooraf_missie, vooraf_start)
+    else:
+        print("NIEUW", eerste_nummer)
 
 
 def sluit_stap():
@@ -326,14 +342,63 @@ def laatste_stap_ongedaan():
     HUB.display.number(eerste_nummer + len(opname))
 
 
+def afspelen():
+    """AANGEPAST (nieuw): speelt alles af zoals in een echte missie: op
+    wedstrijdsnelheid en met de gyro aan. Eerst de stappen van de missie
+    die de robot al gereden had (uit de testmodus), daarna de opname.
+    Zet de robot eerst met de hand terug op de startplek!"""
+    global begin_van_stap
+    sluit_stap()
+    # lijst + lijst = de twee lijsten achter elkaar
+    alle_stappen = vooraf + opname
+    if not alle_stappen:
+        print("Er is nog niets om af te spelen.")
+        return
+    print("Afspelen op wedstrijdsnelheid. Stoppen: MIDDEN op de hub.")
+    HUB.light.on(Color.ORANGE)
+    try:
+        start_missie()       # nulpunt hier + wedstrijdsnelheid, gyro aan
+        voer_stappen_uit(alle_stappen)
+        HUB.speaker.beep(600, 100)
+        print("Afspelen klaar. Je kan verder rijden en opnemen.")
+    except MissionStop:
+        DRIVE_BASE.stop()
+        LEFT_ATTACHMENT.stop()
+        RIGHT_ATTACHMENT.stop()
+        print("Afspelen gestopt met de knop. Je kan verder rijden en opnemen.")
+        wacht_tot_losgelaten()   # anders stopt ook het vrij rijden meteen
+    # Terug naar de snelheden van het toetsenbord-rijden. De volgende stap
+    # begint op de plek waar de robot nu staat.
+    rij_instellingen()
+    begin_van_stap = lees_metingen()
+    HUB.light.on(Color.WHITE)
+    HUB.display.number(eerste_nummer + len(opname))
+
+
 # =====================================================================
 # HET HOOFDPROGRAMMA
 # =====================================================================
 
-def vrij_rijden():
+def vrij_rijden(vooraf_stappen=None, missie="", start=0):
     """Rijden met het toetsenbord en alles opnemen. Stopt met ESC op de
-    computer of met de middelste knop op de hub."""
+    computer of met de middelste knop op de hub.
+    AANGEPAST: de testmodus van main.py geeft mee welke stappen van welke
+    missie de robot al gereden heeft:
+      vooraf_stappen: die stappen (een lijst), of None als er geen zijn
+      missie: de letter van de missie, bv. "B"
+      start: het nummer van de eerste van die stappen
+    De nieuwe stappen krijgen dan de nummers die erna komen."""
+    global vooraf, vooraf_missie, vooraf_start, eerste_nummer
+    if vooraf_stappen is None:
+        vooraf = []
+    else:
+        vooraf = vooraf_stappen
+    vooraf_missie = missie
+    vooraf_start = start
+    eerste_nummer = start + len(vooraf)
+
     rij_instellingen()
+    HUB.light.on(Color.WHITE)
 
     toetsenbord = poll()
     toetsenbord.register(stdin)
@@ -446,6 +511,13 @@ def vrij_rijden():
                 laatste_stap_ongedaan()
                 huidige_soort = None
                 iets_gedaan = True
+
+            if net_ingedrukt(cmd, vorige_cmd, AFSPELEN):
+                # P: alles afspelen op wedstrijdsnelheid
+                afspelen()
+                huidige_soort = None
+                iets_gedaan = True
+                laatste_bericht.reset()   # het afspelen duurde lang, dat is geen verbindingsfout
 
             # Begin je aan een ANDERE soort beweging? Dan is de vorige stap klaar.
             soort = soort_beweging(cmd)
