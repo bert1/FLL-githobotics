@@ -1,0 +1,4 @@
+# Bestanden die Python of de computer zelf maakt: niet op GitHub zetten
+__pycache__/
+*.pyc
+rijlog.txt
