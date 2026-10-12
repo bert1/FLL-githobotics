@@ -122,7 +122,30 @@ Alle soorten stappen:
 
 Onderaan staat `MISSIE_STAPPEN`: een **dictionary** die elke letter van het menu koppelt aan een missie. Voeg je een missie F toe? Pas dan ook `PROGRAM_LIST` in `main.py` aan.
 
-> Let op: de missies die nu in `missies.py` staan zijn **voorbeelden**. Vervang ze door jullie echte missies.
+**Getallen met een naam.** Een getal dat je vaak bijstelt op de mat, krijgt bovenaan de missie een naam in HOOFDLETTERS, met een letter van de missie ervoor:
+
+```python
+A_AFSTAND_NAAR_HAAI_1 = 66      # was 75
+
+MISSIE_A = [
+    ...
+    ("straight", A_AFSTAND_NAAR_HAAI_1),
+]
+```
+
+Zo pas je het getal op één plaats aan, en zie je in het commentaar wat de vorige waarde was.
+
+**Eigen functies.** Moet de robot iets doen dat geen gewone stap is, schrijf dan een kleine functie en roep ze op met `("call", ...)`. Missie D doet dat met `verhoog_grijper_versnelling`, zodat de rechter attachment sneller kan schudden.
+
+Onze missies:
+
+| Letter | Missie |
+|---|---|
+| A | 1_1 (haai, borstel, plant) |
+| B | 12 (tandwielen) |
+| C | 10 |
+| D | 5 (tafel, schudden) |
+| E | arm omlaag en omhoog |
 
 ### main.py: het wedstrijdprogramma
 
