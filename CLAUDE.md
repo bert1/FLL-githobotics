@@ -14,7 +14,7 @@ nog aan het leren zijn.
 - "githo nijlen" schrijf je altijd zonder hoofdletters.
 - robot/ (supportcode.py, missies.py, main.py, vrij_rijden.py) draait op de hub
   (Pybricks MicroPython, geen gewone Python-bibliotheken). computer/stuur_robot.py
-  draait op de computer (gewone Python, met bleak en pynput).
+  draait op de computer (gewone Python, met bleak, pynput en rich).
 - De leerlingen kennen GitHub niet. Ze downloaden de ZIP-bestanden van de release
   "nieuwste" (gemaakt door .github/workflows/maak-downloads.yml) en importeren
   die in Pybricks Code. Houd die werkwijze eenvoudig en de links in README.md en

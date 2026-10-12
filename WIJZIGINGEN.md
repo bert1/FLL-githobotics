@@ -16,6 +16,7 @@ Rijden met het toetsenbord is nu veel handiger om missies te maken: de robot nee
 **Wat moet je doen?**
 - Maak eerst een back-up in Pybricks Code (**Backup all files**).
 - Download [robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip) en importeer het in Pybricks Code. Kies telkens voor vervangen.
+- Typ één keer in de terminal: `pip install rich` (een nieuw onderdeel voor het scherm van `stuur_robot.py`).
 - Download ook de nieuwe [stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py) en zet ze in de plaats van de oude. De oude `stuur_robot.py` werkt **niet** met de nieuwe code op de hub (en omgekeerd). De computer waarschuwt je als het niet past.
 - **`missies.py` hoeft niet te veranderen.** Jullie missies blijven zoals ze zijn.
 
@@ -23,7 +24,8 @@ Rijden met het toetsenbord is nu veel handiger om missies te maken: de robot nee
 - **Opnemen:** elke beweging die je met het toetsenbord maakt, wordt automatisch een stap. Begin je aan een andere soort beweging (bijvoorbeeld van rijden naar draaien), dan wordt de vorige een stap. Alle stappen komen in `opname.txt` op de computer, klaar om in `missies.py` te plakken, met hun stapnummer erbij.
 - **Letter V in het menu:** vrij rijden zit nu in `main.py`. Je hoeft dus geen ander programma meer op de hub te zetten, en ook niet te onthouden om `main.py` terug te zetten.
 - **BACKSPACE** wist de laatste stap en de robot rijdt terug, zodat je opnieuw kan proberen.
-- **SPATIE** sluit de huidige stap af, **ENTER** toont daarna ook de hele opname. (SPATIE zet niet meer zelf het nulpunt: dat is niet meer nodig.)
+- **Nieuw scherm op de computer:** `stuur_robot.py` toont nu een overzichtelijk scherm met vaste vakken: wat er gebeurt, de huidige stap, de instellingen, de opname, alle toetsen en de laatste meldingen. Geen tekst meer die voorbijschuift.
+- **SPATIE** sluit de huidige stap af. (SPATIE zet niet meer zelf het nulpunt: dat is niet meer nodig.) **ENTER** toont de opname groot, over het hele scherm.
 - **R** wist de opname en begint opnieuw.
 - **P** speelt alles af op wedstrijdsnelheid, zoals in de echte missie. Zo zie je meteen of het ook snel goed gaat.
 - **Verder vanaf een missie:** laat de robot in de testmodus een stuk van een missie rijden en druk daarna RECHTS (als het lampje groen is). Je rijdt dan verder met het toetsenbord vanaf de plek waar de missie eindigt. De nieuwe stappen krijgen meteen de juiste nummers, en `opname.txt` zegt waar je ze moet plakken.

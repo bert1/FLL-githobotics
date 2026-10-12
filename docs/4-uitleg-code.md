@@ -80,8 +80,10 @@ Hiermee rijd je de robot met het toetsenbord over de mat, en **neemt de robot al
 3. Open een terminal (Windows: zoek naar *Opdrachtprompt*) en typ:
 
 ```
-pip install bleak pynput
+pip install bleak pynput rich
 ```
+
+(`bleak` maakt de Bluetooth-verbinding, `pynput` leest het toetsenbord, `rich` tekent het overzichtelijke scherm.)
 
 Ga daarna in de terminal naar de map met `stuur_robot.py`, bijvoorbeeld met `cd Documenten/robot`.
 
@@ -108,7 +110,7 @@ Je kan ook nog altijd `vrij_rijden.py` zelf op de hub laden en starten, zoals vr
 | M | stapmodus aan/uit: elke tik is één kleine, exacte beweging |
 | 1 / 2 / 3 | stapgrootte in de stapmodus: fijn (1 mm) / normaal (5 mm) / grof (20 mm) |
 | SPATIE | de huidige stap nu afsluiten |
-| ENTER | de huidige stap afsluiten en de hele opname tonen |
+| ENTER | de opname groot tonen, over het hele scherm (nog eens ENTER: terug) |
 | BACKSPACE | de laatste stap wissen: de robot rijdt terug naar waar hij voor die stap stond |
 | R | de opname wissen en opnieuw beginnen op de plek waar de robot nu staat |
 | P | alles **afspelen** op wedstrijdsnelheid (zet de robot eerst terug op de startplek) |
@@ -126,7 +128,22 @@ Voor de cijfers 1, 2, 3 mag je de toetsen bovenaan gebruiken (zonder SHIFT) of h
 
 Wil je twee stukken rechtdoor als **twee aparte** stappen? Druk er SPATIE tussen. Was een stap fout? Druk BACKSPACE: de stap verdwijnt uit de opname en de robot rijdt terug, zodat je opnieuw kan proberen.
 
-Terwijl je rijdt, zie je onderaan in de terminal hoeveel de **huidige** stap al is (`Deze stap: afstand=... hoek=...`). Op het scherm van de hub staat het nummer van de stap die je nu aan het opnemen bent.
+Op het scherm van de hub staat het nummer van de stap die je nu aan het opnemen bent.
+
+**Het scherm op de computer.** Zodra je `stuur_robot.py` start, wordt het terminalvenster een overzichtelijk scherm met vaste vakken:
+
+![Het scherm van stuur_robot.py](afbeeldingen/stuur_robot.png)
+
+| Vak | Wat zie je? |
+|---|---|
+| bovenaan | wat er nu gebeurt (het bolletje is **groen** als je kan rijden, **geel** als je iets moet doen, **rood** bij een probleem), de naam van de hub en de versie van de code |
+| Deze stap | hoeveel de robot al bewogen is in de stap die nu loopt |
+| Instellingen | stapmodus aan of uit, extra traag (SHIFT) en de stapgrootte |
+| Opname | alle opgenomen stappen, met hun nummer. De nieuwste is groen. Kwam je uit de testmodus, dan staat onderaan waar je de stappen moet plakken |
+| Toetsen | een spiekbriefje met alle toetsen |
+| Meldingen | de laatste berichten, met het tijdstip |
+
+Is je venster klein, dan worden de vakken kleiner en verdwijnt het vak Meldingen: de laatste melding staat dan bovenaan. Maak het venster groter (of zet het op volledig scherm) om alles te zien. Na het stoppen komt je gewone terminal terug, met de hele opname erin.
 
 **Van opname naar missie.** Open `opname.txt` (in dezelfde map als `stuur_robot.py`). Het ziet er zo uit:
 

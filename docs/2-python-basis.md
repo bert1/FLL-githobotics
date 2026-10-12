@@ -115,6 +115,7 @@ Een **lijst** staat tussen vierkante haken `[ ]` en kan je aanpassen. Een **tupl
 letters = ['A', 'B', 'C']
 letters[0]        # 'A'  (het eerste element)
 letters[2]        # 'C'
+letters[-1]       # 'C'  (negatief telt van achteren: -1 is het laatste element)
 len(letters)      # 3    (hoeveel elementen)
 
 stap = ("straight", 300)
