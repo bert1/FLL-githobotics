@@ -7,7 +7,7 @@
 #   MIDDEN                : de gekozen missie starten
 #   MIDDEN tijdens rijden : NOODSTOP
 #   LINKS + RECHTS samen  : testmodus (een stukje van een missie testen)
-# Uitleg voor beginners: zie README.md
+# Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
 
 from supportcode import *
@@ -25,6 +25,10 @@ ACTIVEPROGRAM = 0
 
 # Zet de standaard systeem-stopknop uit, wij regelen het nu zelf
 HUB.system.set_stop_button(None)
+
+# AANGEPAST (nieuw): toon welke versie van de code op de robot staat.
+# VERSIE staat bovenaan supportcode.py. Vergelijk het met WIJZIGINGEN.md op GitHub.
+print("githobotics code versie", VERSIE)
 
 
 # =====================================================================

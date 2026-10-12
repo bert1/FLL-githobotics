@@ -49,7 +49,7 @@
 #      de missie (bv. A_AFSTAND_NAAR_BOOM = 250). Zo pas je het op EEN
 #      plaats aan. Schrijf in commentaar wat de oude waarde was.
 #
-# Uitleg voor beginners: zie README.md
+# Uitleg voor beginners: zie docs/3-missies-schrijven.md op GitHub
 # =====================================================================
 
 from supportcode import LEFT_ATTACHMENT, RIGHT_ATTACHMENT, stop_attachments

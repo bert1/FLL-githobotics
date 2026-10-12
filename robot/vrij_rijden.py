@@ -4,7 +4,7 @@
 # Dit programma luistert naar commando's die stuur_robot.py vanaf de
 # computer stuurt, en laat de robot rijden zolang je een toets indrukt.
 # Handig om uit te zoeken hoeveel mm of graden een missie moet rijden.
-# Uitleg voor beginners: zie README.md
+# Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
 
 from supportcode import DRIVE_BASE, HUB, LEFT_ATTACHMENT, RIGHT_ATTACHMENT

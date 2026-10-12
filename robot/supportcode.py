@@ -10,8 +10,15 @@
 #   4. snelheidsprofielen (precies of snel)
 #   5. het stappen-systeem dat een missie uitvoert
 #   6. een extra krachtige manier om rechtdoor te rijden
-# Uitleg voor beginners: zie README.md
+# Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
+
+# AANGEPAST (nieuw): het versienummer van de code. main.py print dit bij
+# het opstarten, zodat je kan nakijken of je de nieuwste versie hebt.
+# Het is gewoon de datum van de laatste wijziging. Bij elke nieuwe versie
+# verandert dit getal, en in WIJZIGINGEN.md (op GitHub) lees je wat er
+# toen veranderd is.
+VERSIE = "2026-10-12"
 
 import math
 from pybricks.hubs import PrimeHub

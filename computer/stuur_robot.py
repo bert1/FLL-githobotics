@@ -3,7 +3,7 @@ stuur_robot.py: Bestuur de FLL-robot met je toetsenbord, via Bluetooth (BLE).
 
 LET OP: dit programma draait op de COMPUTER (gewone Python), niet op de hub.
 Het werkt samen met vrij_rijden.py, dat op de hub draait.
-Uitleg voor beginners: zie README.md
+Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 
 Vereist:
     pip install bleak pynput

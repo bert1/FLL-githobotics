@@ -1,0 +1,53 @@
+# =====================================================================
+# Deze "GitHub Action" draait automatisch op de servers van GitHub.
+# Telkens als er iets verandert in de map robot/ of computer/ op de main
+# branch, maakt hij de downloadbestanden opnieuw en zet ze bij de release
+# "nieuwste". Zo verwijzen de downloadlinks in de uitleg altijd naar de
+# nieuwste versie, zonder dat iemand ze met de hand moet maken.
+#
+#   robot-volledig.zip        : alle bestanden voor Pybricks Code
+#   robot-zonder-missies.zip  : idem, maar zonder missies.py (om bij te werken)
+#   stuur_robot.py            : het programma voor de computer
+# =====================================================================
+name: Downloads voor Pybricks maken
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "robot/**"
+      - "computer/**"
+      - ".github/workflows/maak-downloads.yml"
+  workflow_dispatch: {}   # ook met de hand te starten via het tabblad Actions
+
+permissions:
+  contents: write          # nodig om bestanden bij de release te zetten
+
+jobs:
+  downloads:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code ophalen
+        uses: actions/checkout@v4
+
+      - name: ZIP-bestanden maken
+        run: |
+          cd robot
+          zip ../robot-volledig.zip *.py
+          zip ../robot-zonder-missies.zip *.py -x missies.py
+          cd ..
+          unzip -l robot-volledig.zip
+          unzip -l robot-zonder-missies.zip
+
+      - name: Bij de release "nieuwste" zetten
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSIE=$(grep -m1 '^VERSIE' robot/supportcode.py | cut -d'"' -f2)
+          NOTITIE="Versie $VERSIE. Wat er veranderd is: zie WIJZIGINGEN.md. Hoe je dit op de robot zet: zie docs/1-github-en-pybricks.md."
+          if gh release view nieuwste > /dev/null 2>&1; then
+            gh release edit nieuwste --title "Nieuwste versie ($VERSIE)" --notes "$NOTITIE"
+          else
+            gh release create nieuwste --title "Nieuwste versie ($VERSIE)" --notes "$NOTITIE" --target main
+          fi
+          gh release upload nieuwste robot-volledig.zip robot-zonder-missies.zip computer/stuur_robot.py --clobber
