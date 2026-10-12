@@ -27,8 +27,12 @@ HUB = PrimeHub(top_side=Axis.Z, front_side=Axis.X)
 # Motoren definieren
 # Aandrijving: linker wiel op poort C (tegenwijzerzin = vooruit),
 #              rechter wiel op poort D (wijzerzin = vooruit)
-Left_motor = Motor(Port.C, Direction.COUNTERCLOCKWISE)
-Right_Motor = Motor(Port.D, Direction.CLOCKWISE)
+# AANGEPAST: deze heetten vroeger Left_motor en Right_Motor (de ene met een
+# kleine m, de andere met een grote M). Python let op hoofdletters, dus dat
+# gaf makkelijk fouten. Nu zijn ze allebei in HOOFDLETTERS, net zoals
+# LEFT_ATTACHMENT en RIGHT_ATTACHMENT.
+LEFT_MOTOR = Motor(Port.C, Direction.COUNTERCLOCKWISE)
+RIGHT_MOTOR = Motor(Port.D, Direction.CLOCKWISE)
 # Attachments: poort C is nu bezet door het linker wiel, daarom zit de linker
 # attachment-motor op poort E. Klopt dit niet met jullie robot? Pas hier de poort aan.
 LEFT_ATTACHMENT = Motor(Port.E, Direction.CLOCKWISE)
@@ -38,7 +42,7 @@ RIGHT_ATTACHMENT = Motor(Port.F, Direction.CLOCKWISE)
 WHEEL_DIAMETER = 62.4
 AXLE_TRACK = 153
 
-DRIVE_BASE = DriveBase(Left_motor, Right_Motor, WHEEL_DIAMETER, AXLE_TRACK)
+DRIVE_BASE = DriveBase(LEFT_MOTOR, RIGHT_MOTOR, WHEEL_DIAMETER, AXLE_TRACK)
 
 # Standaard snelheden (precieze modus, zoals in je originele code)
 DEFAULT_SPEED = 700
@@ -128,6 +132,22 @@ def next_program(active, prog_list):
     """Gaat eentje verder in de lijst (en draait rond als je bij het einde bent)"""
     active = (active + 1) % len(prog_list)
     return active
+
+def wacht_tot_losgelaten():
+    """Wacht tot ALLE knoppen van de hub losgelaten zijn.
+
+    AANGEPAST (nieuw): vroeger stond op zes plaatsen telkens een eigen
+    wacht-lusje. Nu gebruiken we overal deze ene functie.
+    Waarom is dit belangrijk? Het programma kijkt 100 keer per seconde naar
+    de knoppen. Houd je een knop nog ingedrukt, dan denkt het programma dat
+    je OPNIEUW drukt. Na een noodstop kon de robot daardoor meteen weer
+    vertrekken. Door eerst te wachten tot je loslaat, kan dat niet meer.
+
+    HUB.buttons.pressed() geeft een verzameling van de ingedrukte knoppen.
+    Is er geen enkele knop ingedrukt, dan is die verzameling leeg, en een
+    lege verzameling telt in een 'while' als False: de lus stopt dan."""
+    while HUB.buttons.pressed():
+        wait(10)
 
 # --- 4. SNELHEIDSPROFIELEN ---
 # In plaats van in elke missie opnieuw DRIVE_BASE.settings(...) met dezelfde
@@ -223,7 +243,107 @@ def voer_stappen_uit(stappen, start_bij=0, eind_stap=None):
             for _ in range(aantal):
                 voer_stappen_uit(substappen, start_bij=0)
         else:
+            # AANGEPAST: vroeger printte de robot hier enkel een melding en reed
+            # hij gewoon verder met de volgende stap, alsof er niets mis was.
+            # Nu stopt de missie. Normaal kom je hier nooit, want main.py
+            # controleert alle missies al bij het opstarten (zie hieronder).
             print("Onbekende stapsoort:", soort)
+            raise MissionStop("Onbekende stapsoort")
+
+
+# --- 5b. MISSIES CONTROLEREN VOOR HET RIJDEN ---
+# AANGEPAST (nieuw): main.py kijkt bij het opstarten alle missies na met
+# controleer_stappen(). Zo vind je een tikfout meteen aan de tafel, en niet
+# pas als de robot halverwege de mat iets raars doet of het programma crasht.
+
+# Welke soorten stappen bestaan er, en hoeveel waarden horen er NA het woord?
+# Voorbeeld: ("curve", 200, 90) is soort "curve" met 2 waarden erna.
+# Voeg je in voer_stappen_uit() een nieuwe soort stap toe? Zet ze dan OOK hier.
+STAP_SOORTEN = {
+    "straight": 1,    # ("straight", mm)
+    "turn": 1,        # ("turn", graden)
+    "curve": 2,       # ("curve", straal, graden)
+    "wait": 1,        # ("wait", ms)
+    "run_angle": 3,   # ("run_angle", motor, snelheid, graden), mag ook met Stop.xxx erbij
+    "snel": 0,        # ("snel",)
+    "precies": 0,     # ("precies",)
+    "gyro_uit": 0,    # ("gyro_uit",)
+    "call": 1,        # ("call", functie)
+    "herhaal": 2,     # ("herhaal", aantal, [stappen])
+}
+
+def is_getal(waarde):
+    """Geeft True als 'waarde' een getal is (bv. 300 of 62.4), anders False.
+    isinstance(x, soort) betekent: 'is x van deze soort?'"""
+    return isinstance(waarde, (int, float))
+
+def controleer_stap(stap):
+    """Kijkt één stap na.
+    Geeft None terug als de stap klopt, en anders een tekst die uitlegt wat er
+    mis is. (None betekent hier: 'geen fout gevonden'.)"""
+
+    # Is het wel een stap tussen ( )? Een veelgemaakte fout is ("snel")
+    # zonder komma: dan is het gewoon tekst en geen tuple.
+    if not isinstance(stap, tuple):
+        return "dit is geen stap tussen ( ). Komma vergeten? Schrijf bv. (\"snel\",)"
+    if len(stap) == 0:
+        return "lege stap ( )"
+
+    soort = stap[0]
+    if soort not in STAP_SOORTEN:
+        return "onbekende soort stap " + repr(soort) + ". Tikfout?"
+
+    # Klopt het aantal waarden na het woord?
+    aantal = len(stap) - 1
+    verwacht = STAP_SOORTEN[soort]
+    if soort == "run_angle":
+        if aantal not in (3, 4):
+            return "run_angle heeft 3 waarden nodig (motor, snelheid, graden), maar er staan er " + str(aantal)
+    elif aantal != verwacht:
+        return soort + " heeft " + str(verwacht) + " waarde(n) nodig, maar er staan er " + str(aantal)
+
+    # Zijn de waarden van de juiste soort?
+    if soort in ("straight", "turn", "wait"):
+        if not is_getal(stap[1]):
+            return soort + " heeft een getal nodig, geen " + repr(stap[1])
+    elif soort == "curve":
+        if not is_getal(stap[1]) or not is_getal(stap[2]):
+            return "curve heeft twee getallen nodig: straal en graden"
+    elif soort == "run_angle":
+        if not isinstance(stap[1], Motor):
+            return "run_angle: de eerste waarde moet een motor zijn, bv. LEFT_ATTACHMENT"
+        if not is_getal(stap[2]) or not is_getal(stap[3]):
+            return "run_angle: snelheid en graden moeten getallen zijn"
+    elif soort == "call":
+        # callable(x) betekent: 'kan je x uitvoeren, is het een functie?'
+        if not callable(stap[1]):
+            return "na call hoort de naam van een functie, ZONDER ( ) erachter"
+    elif soort == "herhaal":
+        if not isinstance(stap[1], int) or stap[1] < 1:
+            return "herhaal: het aantal moet een geheel getal zijn, 1 of meer"
+        if not isinstance(stap[2], list):
+            return "herhaal: de stappen moeten tussen [ ] staan"
+        # Ook de stappen BINNEN de herhaling nakijken
+        for j, deelstap in enumerate(stap[2]):
+            fout = controleer_stap(deelstap)
+            if fout is not None:
+                return "in herhaal, deelstap " + str(j) + ": " + fout
+
+    return None  # alles klopt
+
+def controleer_stappen(stappen):
+    """Kijkt een volledige missie na.
+    Geeft een lijst van fouten terug. Elke fout is een tuple
+    (stapnummer, uitleg). Een lege lijst betekent: alles klopt."""
+    if not isinstance(stappen, list):
+        return [(0, "de missie is geen lijst: staan de stappen tussen [ ]?")]
+
+    fouten = []
+    for i, stap in enumerate(stappen):
+        uitleg = controleer_stap(stap)
+        if uitleg is not None:
+            fouten.append((i, uitleg))
+    return fouten
 
 # --- 6. PID GYRO-RIJDEN (VOOR SPECIALE, SNELLE RECHTE STUKKEN) ---
 # BELANGRIJK om te begrijpen: DRIVE_BASE.use_gyro(True) zorgt AL voor
@@ -257,8 +377,8 @@ def safe_gyro_sprint(speed, afstand_mm, doel_hoek=None):
     omtrek = math.pi * WHEEL_DIAMETER
     graden_nodig = abs((afstand_mm / omtrek) * 360)
 
-    Left_motor.reset_angle(0)
-    Right_Motor.reset_angle(0)
+    LEFT_MOTOR.reset_angle(0)
+    RIGHT_MOTOR.reset_angle(0)
 
     last_error = 0
     integral = 0
@@ -268,7 +388,7 @@ def safe_gyro_sprint(speed, afstand_mm, doel_hoek=None):
     while True:
         check_stop()  # zo kan de middelste knop dit ook onderbreken
 
-        gemiddelde_hoek = (abs(Left_motor.angle()) + abs(Right_Motor.angle())) / 2
+        gemiddelde_hoek = (abs(LEFT_MOTOR.angle()) + abs(RIGHT_MOTOR.angle())) / 2
         if gemiddelde_hoek >= graden_nodig:
             break
 
@@ -286,10 +406,10 @@ def safe_gyro_sprint(speed, afstand_mm, doel_hoek=None):
         integral += error * dt
         correctie = (kp * error) + (kd * afgeleide) + (ki * integral)
 
-        Right_Motor.dc(speed - correctie)
-        Left_motor.dc(speed + correctie)
+        RIGHT_MOTOR.dc(speed - correctie)
+        LEFT_MOTOR.dc(speed + correctie)
         last_error = error
         wait(10)
 
-    Left_motor.dc(0)
-    Right_Motor.dc(0)
+    LEFT_MOTOR.dc(0)
+    RIGHT_MOTOR.dc(0)

@@ -42,7 +42,8 @@ LOGBESTAND = "rijlog.txt"
 # SHIFT       : ingedrukt houden voor een tragere, preciezere snelheid
 # M           : stapmodus aan/uit (elke tik = 5 mm of 1 graad)
 # R           : zet afstand/hoek/attachment-hoeken hier terug op 0
-# SPATIE      : toon een kant-en-klare regel voor missies.py
+# SPATIE      : toon een kant-en-klare regel voor missies.py, en zet
+#               daarna meteen het nulpunt (zoals R)
 # ESC         : programma stoppen
 
 # Welke toets op het toetsenbord welke actie doet. Wil je andere toetsen?
@@ -62,6 +63,7 @@ TOETSEN = {
 
 ingedrukte_toetsen = set()  # bevat de ACTIES (bv. "vooruit"), niet de letters
 spatie_al_verwerkt = False
+nulpunt_sturen = False      # True = stuur bij het volgende commando één keer "nulpunt"
 
 laatste_waarden = {"afstand": 0, "hoek": 0, "links": 0, "rechts": 0}
 
@@ -88,23 +90,42 @@ def verwerk_hub_regel(tekst):
 
 def toon_kopieerbare_stap():
     """Toont (en logt) kant-en-klare regels voor missies.py, op basis van de
-    laatst ontvangen waarden van de hub."""
-    regels = [
-        '("straight", %d),' % laatste_waarden["afstand"],
-        '("turn", %d),' % laatste_waarden["hoek"],
-    ]
+    laatst ontvangen waarden van de hub.
+
+    AANGEPAST: na het tonen zetten we meteen het nulpunt, net alsof je R
+    indrukt. Vroeger telden de getallen op sinds de laatste keer dat je R
+    drukte. Reed je rechtdoor en draaide je daarna, dan kreeg je bij de
+    tweede SPATIE de TOTALE afstand, en niet de afstand van die ene stap.
+    Nu is elke SPATIE precies één stap: rij, SPATIE, draai, SPATIE, ...
+    Ook tonen we enkel nog de bewegingen die niet 0 zijn."""
+    global nulpunt_sturen
+
+    regels = []
+    if laatste_waarden["afstand"] != 0:
+        regels.append('("straight", %d),' % laatste_waarden["afstand"])
+    if laatste_waarden["hoek"] != 0:
+        regels.append('("turn", %d),' % laatste_waarden["hoek"])
     if abs(laatste_waarden["links"]) > 1:
         regels.append('("run_angle", LEFT_ATTACHMENT, 200, %d),' % laatste_waarden["links"])
     if abs(laatste_waarden["rechts"]) > 1:
         regels.append('("run_angle", RIGHT_ATTACHMENT, 200, %d),' % laatste_waarden["rechts"])
 
     print()
-    print("Kopieerbaar voor missies.py:")
-    for regel in regels:
-        print("   ", regel)
+    if regels:
+        print("Kopieerbaar voor missies.py:")
+        for regel in regels:
+            print("   ", regel)
+        schrijf_log("STAP: " + " | ".join(regels))
+    else:
+        print("De robot is niet bewogen sinds het vorige nulpunt.")
     print()
 
-    schrijf_log("STAP: " + " | ".join(regels))
+    # Nulpunt zetten: de hub krijgt dit mee met het volgende commando
+    # (zie maak_commando). Hier op de computer zetten we de onthouden
+    # waarden ook al op 0, zodat een tweede SPATIE meteen klopt.
+    nulpunt_sturen = True
+    for sleutel in laatste_waarden:
+        laatste_waarden[sleutel] = 0
 
 
 def on_press(key):
@@ -154,10 +175,20 @@ def on_release(key):
 def maak_commando():
     """Bouwt het 12-tekens commando voor de hub, elk teken '1' of '0'.
     De volgorde moet exact overeenkomen met vrij_rijden.py op de hub."""
+    global nulpunt_sturen
+
+    # AANGEPAST: na SPATIE sturen we één keer "nulpunt" mee, net alsof R
+    # kort ingedrukt werd. Daarna meteen weer uit, zodat de hub het ziet
+    # als één tik. (Zo werkt het ook als je SPATIE heel kort aantikt.)
+    toetsen = set(ingedrukte_toetsen)   # een kopie, het origineel blijft hetzelfde
+    if nulpunt_sturen:
+        toetsen.add("nulpunt")
+        nulpunt_sturen = False
+
     volgorde = ("vooruit", "links", "achteruit", "rechts", "nulpunt", "stoppen",
                 "links_att_plus", "links_att_min", "rechts_att_plus", "rechts_att_min",
                 "precisie", "stapmodus")
-    return "".join("1" if t in ingedrukte_toetsen else "0" for t in volgorde).encode()
+    return "".join("1" if t in toetsen else "0" for t in volgorde).encode()
 
 
 async def main():
@@ -225,7 +256,7 @@ async def main():
 
         print("Verbonden! Druk nu op de knop OP DE HUB om vrij_rijden.py te starten.")
         print("Z/S=vooruit/achteruit  Q/D=draaien  I/K=linker attachment  O/L=rechter attachment")
-        print("SHIFT=extra traag  M=stapmodus aan/uit  R=nulpunt hier  SPATIE=kopieerbare regel  ESC=stoppen")
+        print("SHIFT=extra traag  M=stapmodus aan/uit  R=nulpunt hier  SPATIE=kopieerbare regel + nulpunt  ESC=stoppen")
 
         while "stoppen" not in ingedrukte_toetsen:
             await send(maak_commando())

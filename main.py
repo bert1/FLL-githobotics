@@ -14,11 +14,54 @@ from supportcode import *
 from missies import MISSIE_STAPPEN
 
 # Lijst van programma's
-PROGRAM_LIST = ['A', 'B', 'C', 'D', 'E']
+# AANGEPAST: vroeger stond hier PROGRAM_LIST = ['A', 'B', 'C', 'D', 'E'].
+# Voegde je een missie toe in missies.py en vergat je ze hier, dan zat ze
+# niet in het menu (of crashte het programma). Nu maken we de lijst
+# automatisch uit de letters in MISSIE_STAPPEN. Een nieuwe missie toevoegen
+# doe je dus enkel nog in missies.py.
+# sorted() zet de letters in alfabetische volgorde: A, B, C, ...
+PROGRAM_LIST = sorted(MISSIE_STAPPEN)
 ACTIVEPROGRAM = 0
 
 # Zet de standaard systeem-stopknop uit, wij regelen het nu zelf
 HUB.system.set_stop_button(None)
+
+
+# =====================================================================
+# MISSIES CONTROLEREN BIJ HET OPSTARTEN
+# =====================================================================
+# AANGEPAST (nieuw): voor het menu verschijnt, kijken we alle missies na op
+# tikfouten (zie controleer_stappen() in supportcode.py).
+# Is er een fout, dan:
+#   - wordt het lampje ROOD
+#   - toont het scherm de letter en het stapnummer, bv. "B 4"
+#   - staat de uitleg in Pybricks Code (onderaan, bij de uitvoer)
+# Een missie met een fout kan je niet starten. De andere missies wel, zodat
+# je op de wedstrijd nooit vastzit door één foute missie.
+
+# Een dictionary: letter van de missie -> lijst van fouten in die missie.
+# Missies zonder fouten komen hier niet in.
+FOUTE_MISSIES = {}
+for letter in PROGRAM_LIST:
+    fouten = controleer_stappen(MISSIE_STAPPEN[letter])
+    if fouten:   # een lijst met iets erin telt als True
+        FOUTE_MISSIES[letter] = fouten
+
+
+def toon_fouten(letter):
+    """Toont de fouten van één missie: op het scherm en in Pybricks Code."""
+    HUB.light.on(Color.RED)
+    HUB.speaker.beep(200, 500)
+    for nummer, uitleg in FOUTE_MISSIES[letter]:
+        print("FOUT in missie", letter, "stap", nummer, ":", uitleg)
+        HUB.display.text(letter + " " + str(nummer))   # loopt over het scherm
+
+
+# Bij het opstarten: toon meteen alle fouten
+for letter in FOUTE_MISSIES:
+    toon_fouten(letter)
+if FOUTE_MISSIES:
+    print("Verbeter deze fouten in missies.py. De andere missies werken wel.")
 
 
 # =====================================================================
@@ -48,8 +91,7 @@ def kies_getal(kleur, minimum=0, maximum=None):
             getal += 1
             wait(200)
         elif Button.CENTER in pressed:
-            while Button.CENTER in HUB.buttons.pressed():
-                wait(10)
+            wacht_tot_losgelaten()
             return getal
         wait(10)
 
@@ -70,8 +112,7 @@ def wacht_op_keuze():
                     return 'stop'
             return 'herhaal'
         elif Button.LEFT in pressed and Button.RIGHT in pressed:
-            while Button.LEFT in HUB.buttons.pressed() or Button.RIGHT in HUB.buttons.pressed():
-                wait(10)
+            wacht_tot_losgelaten()
             return 'nieuw'
         wait(10)
 
@@ -96,8 +137,7 @@ def test_enkele_waarde(stappen, index):
         pressed = HUB.buttons.pressed()
 
         if Button.LEFT in pressed and Button.RIGHT in pressed:
-            while Button.LEFT in HUB.buttons.pressed() or Button.RIGHT in HUB.buttons.pressed():
-                wait(10)
+            wacht_tot_losgelaten()
             return None  # terug naar het kiezen van een nieuwe startstap/aantal
 
         elif Button.LEFT in pressed:
@@ -128,6 +168,10 @@ def test_enkele_waarde(stappen, index):
                 print("Teststap gestopt door gebruiker.")
                 DRIVE_BASE.stop()
                 HUB.speaker.beep(200, 500)
+                # AANGEPAST: wacht tot de stopknop los is, anders ziet de lus
+                # hierboven die knop als een nieuwe druk en rijdt de robot
+                # meteen opnieuw.
+                wacht_tot_losgelaten()
 
             print("Stap", index, "(", soort, ") staat nu op:", waarde)
             HUB.light.on(Color.CYAN)
@@ -140,6 +184,11 @@ def test_modus():
     het gewone menu."""
     actieve_letter = PROGRAM_LIST[ACTIVEPROGRAM]
     stappen = MISSIE_STAPPEN[actieve_letter]
+
+    # AANGEPAST: een missie met een fout testen we niet
+    if actieve_letter in FOUTE_MISSIES:
+        toon_fouten(actieve_letter)
+        return
 
     while True:
         start = kies_getal(Color.YELLOW, minimum=0, maximum=len(stappen) - 1)
@@ -166,6 +215,7 @@ def test_modus():
                 LEFT_ATTACHMENT.stop()
                 RIGHT_ATTACHMENT.stop()
                 HUB.speaker.beep(200, 500)
+                wacht_tot_losgelaten()   # AANGEPAST: zie uitleg in test_enkele_waarde
 
             HUB.light.on(Color.GREEN)
             keuze = wacht_op_keuze()
@@ -181,14 +231,17 @@ while True:
     HUB.system.set_stop_button(None)
 
     HUB.display.char(PROGRAM_LIST[ACTIVEPROGRAM])
-    HUB.light.on(Color.BLUE)
+    # AANGEPAST: rood lampje als deze missie een fout bevat, anders blauw
+    if PROGRAM_LIST[ACTIVEPROGRAM] in FOUTE_MISSIES:
+        HUB.light.on(Color.RED)
+    else:
+        HUB.light.on(Color.BLUE)
 
     pressed = HUB.buttons.pressed()
 
     # --- TEST-MODUS: beide knoppen tegelijk ---
     if Button.LEFT in pressed and Button.RIGHT in pressed:
-        while Button.LEFT in HUB.buttons.pressed() or Button.RIGHT in HUB.buttons.pressed():
-            wait(10)
+        wacht_tot_losgelaten()
         test_modus()
 
     # --- NAVIGATIE ---
@@ -206,8 +259,13 @@ while True:
     elif Button.CENTER in pressed:
         # 1. Wacht tot je de knop LOSLAAT (belangrijk!)
         HUB.light.on(Color.ORANGE)
-        while Button.CENTER in HUB.buttons.pressed():
-            wait(10)
+        wacht_tot_losgelaten()
+
+        # AANGEPAST: een missie met een fout starten we niet. We tonen de
+        # fout opnieuw en gaan terug naar het menu.
+        if PROGRAM_LIST[ACTIVEPROGRAM] in FOUTE_MISSIES:
+            toon_fouten(PROGRAM_LIST[ACTIVEPROGRAM])
+            continue   # continue = sla de rest over, begin de lus opnieuw
 
         # 2. Start het beveiligde blok
         try:
@@ -228,6 +286,7 @@ while True:
             LEFT_ATTACHMENT.stop()
             RIGHT_ATTACHMENT.stop()
             HUB.speaker.beep(200, 500)  # Laag fout-geluidje
+            wacht_tot_losgelaten()      # AANGEPAST: eerst de stopknop loslaten
             wait(500)  # Even wachten tegen per ongeluk dubbel klikken
 
     # Einde van while loop, ga terug naar het menu

@@ -37,6 +37,10 @@
 #      Dat nummer zie je op het scherm van de hub tijdens het rijden, en dat
 #      nummer kies je ook in de testmodus.
 #
+# FOUT GETYPT? Bij het opstarten kijkt main.py alle missies na. Vindt het een
+#      fout, dan wordt het lampje ROOD, toont het scherm de letter en het
+#      stapnummer (bv. "B 4") en staat de uitleg onderaan in Pybricks Code.
+#
 # TIP: met vrij_rijden.py + stuur_robot.py kan je de robot met het toetsenbord
 #      naar de juiste plek rijden en met SPATIE een kant-en-klare regel krijgen
 #      om hier te plakken.
@@ -107,10 +111,10 @@ MISSIE_E = [
 
 
 # =====================================================================
-# EEN EXTRA MISSIE TOEVOEGEN (bv. F)? Doe dan deze 3 dingen:
+# EEN EXTRA MISSIE TOEVOEGEN (bv. F)? Doe dan deze 2 dingen:
 #   1. Kopieer hierboven een volledig blok (van ===== tot ]) en noem het MISSIE_F
 #   2. Voeg hieronder in MISSIE_STAPPEN de regel  "F": MISSIE_F,  toe
-#   3. Voeg in main.py de letter 'F' toe aan PROGRAM_LIST
+# Het menu in main.py neemt de nieuwe letter vanzelf over.
 # =====================================================================
 
 # Hier koppelen we elke letter van het menu aan een missie.

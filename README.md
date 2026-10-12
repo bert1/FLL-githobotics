@@ -70,8 +70,8 @@ Dit bestand voer je nooit zelf uit. Andere bestanden halen er hun onderdelen uit
 
 | Naam | Poort | Wat |
 |---|---|---|
-| `Left_motor` | C | linker wiel |
-| `Right_Motor` | D | rechter wiel |
+| `LEFT_MOTOR` | C | linker wiel |
+| `RIGHT_MOTOR` | D | rechter wiel |
 | `LEFT_ATTACHMENT` | E | linker motor voor een opzetstuk |
 | `RIGHT_ATTACHMENT` | F | rechter motor voor een opzetstuk |
 
@@ -81,7 +81,7 @@ Dit bestand voer je nooit zelf uit. Andere bestanden halen er hun onderdelen uit
 
 **2. Veiligheidsfuncties.** `safe_straight`, `safe_turn`, `safe_curve`, `safe_wait` en `safe_run_angle` doen hetzelfde als de gewone Pybricks-functies, maar kijken elke 10 milliseconden of je op de middelste knop drukt. Zo ja, dan roept `check_stop()` een `MissionStop` op: alle motoren stoppen, het lampje wordt rood en de hub piept.
 
-**3. Menu.** `next_program` en `prior_program` gaan één stap vooruit of achteruit in de lijst van missies. Het teken `%` zorgt dat je na de laatste letter terug bij de eerste uitkomt.
+**3. Menu.** `next_program` en `prior_program` gaan één stap vooruit of achteruit in de lijst van missies. Het teken `%` zorgt dat je na de laatste letter terug bij de eerste uitkomt. `wacht_tot_losgelaten()` wacht tot je alle knoppen van de hub loslaat. Zonder die functie denkt het programma dat je opnieuw drukt zolang je de knop vasthoudt.
 
 **4. Snelheidsprofielen.**
 - `set_precieze_modus()`: rustig rijden, gyro aan. Dit is de normale modus.
@@ -89,6 +89,8 @@ Dit bestand voer je nooit zelf uit. Andere bestanden halen er hun onderdelen uit
 - `start_missie()`: zet afstand en richting op 0 op de plek waar de robot nu staat. Dit gebeurt automatisch bij elke missie.
 
 **5. Stappen-systeem.** `voer_stappen_uit(stappen)` loopt door de lijst van stappen uit `missies.py` en voert ze één voor één uit. Het nummer van de stap verschijnt op het scherm. Met `start_bij` en `eind_stap` kan je maar een stukje uitvoeren (dat gebruikt de testmodus).
+
+**5b. Missies controleren.** `controleer_stappen(stappen)` kijkt een missie na op tikfouten, nog voor de robot rijdt: bestaat de soort stap, staan er genoeg getallen, is een motor echt een motor, ... `main.py` doet dit bij het opstarten voor alle missies. In `STAP_SOORTEN` staat welke soorten stappen er zijn en hoeveel waarden erbij horen. Maak je een nieuwe soort stap in `voer_stappen_uit`, zet ze dan ook in `STAP_SOORTEN`.
 
 **6. `safe_gyro_sprint`.** Een speciale functie om met volle kracht rechtdoor te rijden, met een eigen PID-regeling (zie [Deel 4](#deel-4-wat-is-pid)). Voor gewone missies gebruik je gewoon `("straight", ...)`.
 
@@ -120,7 +122,7 @@ Alle soorten stappen:
 | `("herhaal", aantal, [stappen])` | een reeks stappen herhalen | `("herhaal", 3, [("straight", 50), ("straight", -50)])` |
 | `("call", functie)` | een eigen functie uitvoeren | `("call", stop_attachments)` |
 
-Onderaan staat `MISSIE_STAPPEN`: een **dictionary** die elke letter van het menu koppelt aan een missie. Voeg je een missie F toe? Pas dan ook `PROGRAM_LIST` in `main.py` aan.
+Onderaan staat `MISSIE_STAPPEN`: een **dictionary** die elke letter van het menu koppelt aan een missie. Het menu in `main.py` maakt zijn lijst van letters automatisch uit `MISSIE_STAPPEN`.
 
 **Getallen met een naam.** Een getal dat je vaak bijstelt op de mat, krijgt bovenaan de missie een naam in HOOFDLETTERS, met de letter van de missie ervoor:
 
@@ -157,7 +159,15 @@ Schrijf ook bij elke missie in de titel welke missie van de mat het is, bijvoorb
 **Een extra missie toevoegen** (bijvoorbeeld F):
 1. Kopieer in `missies.py` een volledig missieblok en noem het `MISSIE_F`.
 2. Voeg in `MISSIE_STAPPEN` de regel `"F": MISSIE_F,` toe.
-3. Voeg in `main.py` de letter `'F'` toe aan `PROGRAM_LIST`.
+
+Meer hoeft niet: het menu neemt de letter F vanzelf over.
+
+**Tikfout in een missie?** Bij het opstarten kijkt `main.py` alle missies na. Vindt het een fout, dan:
+- wordt het lampje **rood**,
+- loopt de letter en het stapnummer over het scherm, bijvoorbeeld `B 4` (missie B, stap 4),
+- staat de uitleg onderaan in Pybricks Code, bijvoorbeeld `FOUT in missie B stap 4 : onbekende soort stap 'stright'. Tikfout?`
+
+Een missie met een fout kan je niet starten en niet testen: het lampje blijft rood als je die letter kiest. De andere missies werken gewoon, zodat je op de wedstrijd nooit vastzit door één foute missie.
 
 Onze missies (vul aan als een missie klaar is):
 
@@ -175,10 +185,12 @@ Dit programma toont een letter op het scherm van de hub. De knoppen:
 
 | Knop | Wat gebeurt er? | Kleur lampje |
 |---|---|---|
-| LINKS / RECHTS | vorige / volgende missie | blauw |
+| LINKS / RECHTS | vorige / volgende missie | blauw (**rood** als die missie een fout bevat) |
 | MIDDEN | missie starten (pas als je loslaat) | oranje tijdens het rijden |
-| MIDDEN tijdens het rijden | noodstop | rood |
+| MIDDEN tijdens het rijden | noodstop (laat de knop daarna los) | rood |
 | LINKS + RECHTS samen | testmodus | |
+
+Bij het opstarten worden eerst alle missies gecontroleerd op tikfouten (zie [missies.py](#missiespy-hier-schrijf-jij-de-missies)).
 
 Na een geslaagde missie springt het menu vanzelf naar de volgende letter.
 
@@ -222,13 +234,13 @@ pip install bleak pynput
 | SHIFT ingedrukt | extra traag, voor de laatste millimeters |
 | M | stapmodus aan/uit: elke tik is precies 5 mm of 1 graad |
 | R | nulpunt: afstand, hoek en attachments hier op 0 zetten |
-| SPATIE | toon een kant-en-klare regel om in `missies.py` te plakken |
+| SPATIE | toon een kant-en-klare regel om in `missies.py` te plakken, en zet daarna meteen het nulpunt |
 | ESC | stoppen |
 | knop op de hub | stopt altijd meteen |
 
 Alles wat de hub terugstuurt wordt ook bewaard in `rijlog.txt` op de computer.
 
-**Tip:** de getallen die je met SPATIE krijgt tellen vanaf het laatste nulpunt. Werk daarom per stukje: rij rechtdoor, druk SPATIE, druk R, draai, druk SPATIE, druk R, ...
+**Werkwijze per stap:** rij rechtdoor, druk SPATIE, draai, druk SPATIE, ... Na elke SPATIE wordt het nulpunt automatisch gezet, dus elke regel die je krijgt is precies één stap. Je hoeft geen R meer te drukken. Bewegingen die 0 zijn worden niet getoond. Druk SPATIE best als de robot stilstaat: het nulpunt zetten stopt de robot even.
 
 **Veiligheid:** komt er 0,5 seconde lang niets binnen van de computer (verbinding weg), dan stopt de robot vanzelf.
 
@@ -443,10 +455,27 @@ Een variabele die je **binnen** een functie verandert, bestaat normaal enkel bin
 | `IndentationError` | inspringen klopt niet (mix van spaties en tabs, of vergeten in te springen) |
 | `SyntaxError` | vergeten `:` na `if`/`while`/`def`, vergeten komma in een lijst, haakje niet gesloten |
 | `NameError` | naam verkeerd geschreven (Python let op hoofdletters: `Hub` is niet `HUB`) |
-| `KeyError: 'F'` | letter staat in `PROGRAM_LIST` maar niet in `MISSIE_STAPPEN` |
 | `IndexError` | je vraagt een element dat niet bestaat, bv. `letters[5]` als er maar 3 zijn |
-| `TypeError` | een stap heeft te weinig of te veel getallen |
+| `TypeError` | een waarde van de verkeerde soort, bv. tekst waar een getal moet |
 
+Fouten **in een stap** van een missie (tikfout, getal vergeten, komma vergeten) vangt `main.py` zelf op bij het opstarten: rood lampje en uitleg in Pybricks Code. Zie [missies.py](#missiespy-hier-schrijf-jij-de-missies).
+
+### 3.16 Handige ingebouwde functies
+
+Deze functies zitten in Python zelf, je hoeft ze niet te importeren.
+
+| Functie | Wat doet ze? | Voorbeeld |
+|---|---|---|
+| `print(...)` | tekst tonen (in Pybricks Code onderaan) | `print("klaar")` |
+| `len(x)` | hoeveel elementen | `len(MISSIE_A)` |
+| `abs(x)` | getal zonder minteken | `abs(-5)` is `5` |
+| `round(x)` | afronden | `round(2.7)` is `3` |
+| `str(x)` | getal omzetten naar tekst | `"stap " + str(4)` is `"stap 4"` |
+| `sorted(x)` | in volgorde zetten | `sorted(["C", "A", "B"])` is `["A", "B", "C"]` |
+| `isinstance(x, soort)` | is x van deze soort? | `isinstance(300, int)` is `True` |
+| `callable(x)` | is x een functie die je kan uitvoeren? | `callable(stop_attachments)` is `True` |
+
+**Leeg telt als False.** Een lege lijst `[]`, een lege dictionary `{}`, een lege verzameling, `0` en `None` tellen in een `if` of `while` als `False`. Daarom werkt `while HUB.buttons.pressed():` als "zolang er een knop ingedrukt is".
 ---
 
 ## Deel 4: Wat is PID?
