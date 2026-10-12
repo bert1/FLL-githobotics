@@ -1,3 +1,18 @@
+# =====================================================================
+# supportcode.py: DE GEREEDSCHAPSKIST VAN DE ROBOT
+# =====================================================================
+# Dit bestand voer je nooit zelf uit. De andere bestanden (main.py,
+# missies.py, vrij_rijden.py) halen hier hun onderdelen uit met 'import'.
+# Hier staat:
+#   1. hoe de robot gebouwd is (welke motor op welke poort, wielmaat)
+#   2. veilige rij-functies die stoppen als je op de middelste knop drukt
+#   3. hulpjes voor het menu
+#   4. snelheidsprofielen (precies of snel)
+#   5. het stappen-systeem dat een missie uitvoert
+#   6. een extra krachtige manier om rechtdoor te rijden
+# Uitleg voor beginners: zie README.md
+# =====================================================================
+
 import math
 from pybricks.hubs import PrimeHub
 from pybricks.pupdevices import Motor
@@ -87,8 +102,18 @@ def safe_wait(time_ms):
         wait(10)
 
 def safe_run_angle(motor, speed, angle, then=Stop.HOLD):
-    """Draait een attachment motor, maar stopt als je op de knop drukt."""
-    motor.run_angle(speed, angle, wait=False)
+    """Draait een attachment motor, maar stopt als je op de knop drukt.
+
+    then: wat de motor doet als hij klaar is.
+          Stop.HOLD  = vastklemmen op die hoek (standaard)
+          Stop.COAST = loslaten, de motor mag vrij uitdraaien
+          Stop.BRAKE = afremmen, maar niet vastklemmen
+    """
+    # AANGEPAST: vroeger werd 'then' wel meegegeven aan deze functie, maar
+    # nooit doorgegeven aan run_angle(). Daardoor deed een stap zoals
+    # ("run_angle", LEFT_ATTACHMENT, 200, 90, Stop.COAST) toch altijd HOLD.
+    # Nu geven we 'then' wel door, zodat de motor doet wat je vraagt.
+    motor.run_angle(speed, angle, then=then, wait=False)
     while not motor.done():
         check_stop()
         wait(10)

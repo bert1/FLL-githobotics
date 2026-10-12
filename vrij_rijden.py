@@ -1,3 +1,12 @@
+# =====================================================================
+# vrij_rijden.py: DE ROBOT BESTUREN MET HET TOETSENBORD (dit draait op de hub)
+# =====================================================================
+# Dit programma luistert naar commando's die stuur_robot.py vanaf de
+# computer stuurt, en laat de robot rijden zolang je een toets indrukt.
+# Handig om uit te zoeken hoeveel mm of graden een missie moet rijden.
+# Uitleg voor beginners: zie README.md
+# =====================================================================
+
 from supportcode import DRIVE_BASE, HUB, LEFT_ATTACHMENT, RIGHT_ATTACHMENT
 from pybricks.parameters import Button
 from pybricks.tools import wait, StopWatch

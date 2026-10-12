@@ -1,3 +1,15 @@
+# =====================================================================
+# main.py: HET WEDSTRIJDPROGRAMMA (dit draait op de hub)
+# =====================================================================
+# Dit is het programma dat je start op de wedstrijd. Het toont een menu
+# met letters (A, B, C, ...). Elke letter is een missie uit missies.py.
+#   LINKS / RECHTS        : vorige / volgende missie kiezen
+#   MIDDEN                : de gekozen missie starten
+#   MIDDEN tijdens rijden : NOODSTOP
+#   LINKS + RECHTS samen  : testmodus (een stukje van een missie testen)
+# Uitleg voor beginners: zie README.md
+# =====================================================================
+
 from supportcode import *
 from missies import MISSIE_STAPPEN
 
