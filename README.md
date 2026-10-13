@@ -10,7 +10,7 @@ Nog nooit met GitHub of Python gewerkt? Geen probleem: volg de stappen hieronder
 |---|---|---|
 | De **eerste keer** alles op de robot zetten | **[robot-volledig.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-volledig.zip)** | [stappenplan](docs/1-github-en-pybricks.md#de-eerste-keer-alles-op-de-robot-zetten) |
 | **Bijwerken** naar een nieuwe versie (je eigen missies blijven) | **[robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip)** | [stappenplan](docs/1-github-en-pybricks.md#er-is-een-nieuwe-versie-bijwerken) |
-| De robot **besturen met het toetsenbord** (op de computer) | **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)** | [uitleg](docs/4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord) |
+| De robot **besturen met het toetsenbord** en je missie **opnemen** (op de computer) | **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)** | [uitleg](docs/4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord) |
 
 In Pybricks Code ([code.pybricks.com](https://code.pybricks.com)) klik je op **Import a file** en kies je het ZIP-bestand. Je hoeft het niet uit te pakken.
 
@@ -29,27 +29,28 @@ Wat er in elke versie veranderd is, lees je in **[WIJZIGINGEN.md](WIJZIGINGEN.md
 |---|---|
 | [`robot/`](robot) | de code voor de **hub**. Deze bestanden gaan naar Pybricks Code. |
 | [`robot/missies.py`](robot/missies.py) | **de missies: hier werken jullie het meest in** |
-| [`robot/main.py`](robot/main.py) | het wedstrijdprogramma: menu om missies te kiezen en te testen |
+| [`robot/main.py`](robot/main.py) | het wedstrijdprogramma: menu om missies te kiezen, te testen en (letter V) met het toetsenbord te rijden |
 | [`robot/supportcode.py`](robot/supportcode.py) | instellingen van de robot (poorten, wielmaat) en alle hulpfuncties |
-| [`robot/vrij_rijden.py`](robot/vrij_rijden.py) | de robot laten rijden met het toetsenbord |
-| [`computer/stuur_robot.py`](computer/stuur_robot.py) | draait op de **computer**: leest het toetsenbord en stuurt dat naar de hub |
+| [`robot/vrij_rijden.py`](robot/vrij_rijden.py) | de robot laten rijden met het toetsenbord en alles opnemen als stappen |
+| [`computer/stuur_robot.py`](computer/stuur_robot.py) | draait op de **computer**: leest het toetsenbord, stuurt dat naar de hub en schrijft de opname in `opname.txt` |
 | [`docs/`](docs) | alle uitleg |
 | [`WIJZIGINGEN.md`](WIJZIGINGEN.md) | wat er in elke versie veranderd is |
 
 Zo werken de bestanden samen:
 
 ```
-WEDSTRIJD                                   UITZOEKEN / TESTEN
+            HUB                                            COMPUTER
 
- main.py  (menu A, B, C...)                 computer               hub
-   |                                        stuur_robot.py  ---->  vrij_rijden.py
-   |  haalt de stappen uit                  (toetsenbord)  Bluetooth   |
-   v                                                                   |
- missies.py  (MISSIE_A, MISSIE_B...)                                   |
-   |                                                                   |
-   |  alle drie gebruiken                                              |
-   v                                                                   v
- supportcode.py  (motoren, veilig rijden, stappen uitvoeren)  <--------+
+ main.py  (menu A, B, C... en V)
+   |                 |
+   |  haalt de       |  letter V: rijden met     Bluetooth
+   |  stappen uit    +-------> vrij_rijden.py  <---------->  stuur_robot.py
+   v                                 |                       (toetsenbord)
+ missies.py  (MISSIE_A...)           |                            |
+   |                                 |                            v
+   |  allemaal gebruiken             |                       opname.txt
+   v                                 v                       (stappen om te plakken)
+ supportcode.py  (motoren, veilig rijden, stappen uitvoeren)
 ```
 
 ## Afspraken als je code aanpast

@@ -115,6 +115,7 @@ Een **lijst** staat tussen vierkante haken `[ ]` en kan je aanpassen. Een **tupl
 letters = ['A', 'B', 'C']
 letters[0]        # 'A'  (het eerste element)
 letters[2]        # 'C'
+letters[-1]       # 'C'  (negatief telt van achteren: -1 is het laatste element)
 len(letters)      # 3    (hoeveel elementen)
 
 stap = ("straight", 300)
@@ -123,6 +124,24 @@ stap[1]           # 300
 ```
 
 Een tuple met maar één element heeft een komma nodig: `("snel",)`.
+
+Een lijst aanpassen (dat kan niet met een tuple):
+
+```python
+opname = []                       # een lege lijst
+opname.append(("straight", 412))  # achteraan iets toevoegen
+laatste = opname.pop()            # het laatste element eruit halen
+opname.clear()                    # de lijst helemaal leeg maken
+['A', 'B'] + ['V']                # twee lijsten aan elkaar: ['A', 'B', 'V']
+```
+
+Een **stuk** van een lijst of tuple nemen doe je met een dubbelpunt:
+
+```python
+stap = ("run_angle", LEFT_ATTACHMENT, 200, 90)
+stap[1:]          # alles vanaf element 1: (LEFT_ATTACHMENT, 200, 90)
+stap[0:2]         # element 0 en 1 (2 niet meer): ("run_angle", LEFT_ATTACHMENT)
+```
 
 ## 9. Dictionaries
 
@@ -178,6 +197,15 @@ from supportcode import *                  # alles uit supportcode.py
 
 Alle bestanden met `from pybricks...` komen uit Pybricks zelf.
 
+Bij `import` voert Python het hele andere bestand uit. Soms mag een stuk daarvan enkel lopen als je dat bestand **zelf** start. Dat zie je onderaan `vrij_rijden.py`:
+
+```python
+if __name__ == "__main__":
+    vrij_rijden()
+```
+
+`__name__` is de naam van het bestand dat nu loopt. Start je `vrij_rijden.py` zelf, dan is die naam `"__main__"` en begint het rijden meteen. Haalt `main.py` het op met `import`, dan niet: dan start het rijden pas als je in het menu V kiest.
+
 ## 13. Fouten opvangen: `try` en `except`
 
 Zo werkt onze noodstop. Gaat er iets "mis" in het `try`-blok (bijvoorbeeld de knop wordt ingedrukt en `check_stop()` roept `MissionStop` op), dan springt Python meteen naar het `except`-blok.
@@ -220,6 +248,7 @@ Deze functies zitten in Python zelf, je hoeft ze niet te importeren.
 | `sorted(x)` | in volgorde zetten | `sorted(["C", "A", "B"])` is `["A", "B", "C"]` |
 | `isinstance(x, soort)` | is x van deze soort? | `isinstance(300, int)` is `True` |
 | `callable(x)` | is x een functie die je kan uitvoeren? | `callable(stop_attachments)` is `True` |
+| `chr(x)` | het teken dat bij een codenummer hoort | `chr(50)` is `"2"` |
 
 **Leeg telt als False.** Een lege lijst `[]`, een lege dictionary `{}`, een lege verzameling, `0` en `None` tellen in een `if` of `while` als `False`. Daarom werkt `while HUB.buttons.pressed():` als "zolang er een knop ingedrukt is".
 ---
