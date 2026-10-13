@@ -85,6 +85,8 @@ pip install bleak pynput rich
 
 (`bleak` maakt de Bluetooth-verbinding, `pynput` leest het toetsenbord, `rich` tekent het overzichtelijke scherm.)
 
+Staat er op het einde `Successfully installed ...`? Dan is het gelukt. Meldingen zoals `WARNING: The script pygmentize.exe is installed in ... which is not on PATH` mag je negeren: dat gaat over extra hulpprogramma's die wij niet gebruiken.
+
 Ga daarna in de terminal naar de map met `stuur_robot.py`, bijvoorbeeld met `cd Documenten/robot`.
 
 **Werkwijze:**
