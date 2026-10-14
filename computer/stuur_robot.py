@@ -66,6 +66,11 @@ IS_EXE = getattr(sys, "frozen", False)
 # AANGEPAST (nieuw): met "stuur_robot.exe --controle" kijkt GitHub na of
 # alle onderdelen in de .exe zitten, zonder met de hub te verbinden.
 if "--controle" in sys.argv:
+    # Het Bluetooth-deel voor Windows laadt bleak pas als het verbindt.
+    # Daarom laden we het hier al eens, om te zien of het erin zit.
+    if sys.platform == "win32":
+        import bleak.backends.winrt.scanner
+        import bleak.backends.winrt.client
     print("Alle onderdelen zijn aanwezig.")
     sys.exit(0)
 
