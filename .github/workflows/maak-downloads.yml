@@ -8,6 +8,10 @@
 #   robot-volledig.zip        : alle bestanden voor Pybricks Code
 #   robot-zonder-missies.zip  : idem, maar zonder missies.py (om bij te werken)
 #   stuur_robot.py            : het programma voor de computer
+#   stuur_robot.exe           : AANGEPAST (nieuw): hetzelfde programma als
+#                               Windows-app. Python en alle onderdelen
+#                               (bleak, pynput, rich) zitten erin, dus de
+#                               leerlingen moeten niets installeren.
 # =====================================================================
 name: Downloads voor Pybricks maken
 
@@ -24,7 +28,42 @@ permissions:
   contents: write          # nodig om bestanden bij de release te zetten
 
 jobs:
+  # AANGEPAST (nieuw): de .exe moet op een Windows-computer gemaakt worden.
+  # PyInstaller pakt stuur_robot.py, Python zelf en alle onderdelen samen
+  # in één bestand.
+  exe:
+    runs-on: windows-latest
+    steps:
+      - name: Code ophalen
+        uses: actions/checkout@v4
+
+      - name: Python klaarzetten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Onderdelen installeren
+        run: pip install bleak pynput rich pyinstaller
+
+      - name: stuur_robot.exe maken
+        run: >
+          pyinstaller --onefile --console --name stuur_robot
+          --collect-all bleak --collect-all winrt
+          --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32
+          --collect-submodules rich
+          computer/stuur_robot.py
+
+      - name: Controleren of alle onderdelen in de .exe zitten
+        run: dist/stuur_robot.exe --controle
+
+      - name: stuur_robot.exe doorgeven aan de volgende stap
+        uses: actions/upload-artifact@v4
+        with:
+          name: stuur_robot-exe
+          path: dist/stuur_robot.exe
+
   downloads:
+    needs: exe
     runs-on: ubuntu-latest
     steps:
       - name: Code ophalen
@@ -39,7 +78,15 @@ jobs:
           unzip -l robot-volledig.zip
           unzip -l robot-zonder-missies.zip
 
+      - name: stuur_robot.exe ophalen
+        uses: actions/download-artifact@v4
+        with:
+          name: stuur_robot-exe
+
+      # Enkel vanaf main komt iets bij de downloads van de leerlingen.
+      # Op een andere branch testen we alleen of alles lukt.
       - name: Bij de release "nieuwste" zetten
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -50,4 +97,4 @@ jobs:
           else
             gh release create nieuwste --title "Nieuwste versie ($VERSIE)" --notes "$NOTITIE" --target main
           fi
-          gh release upload nieuwste robot-volledig.zip robot-zonder-missies.zip computer/stuur_robot.py --clobber
+          gh release upload nieuwste robot-volledig.zip robot-zonder-missies.zip computer/stuur_robot.py stuur_robot.exe --clobber

@@ -10,7 +10,8 @@ Nog nooit met GitHub of Python gewerkt? Geen probleem: volg de stappen hieronder
 |---|---|---|
 | De **eerste keer** alles op de robot zetten | **[robot-volledig.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-volledig.zip)** | [stappenplan](docs/1-github-en-pybricks.md#de-eerste-keer-alles-op-de-robot-zetten) |
 | **Bijwerken** naar een nieuwe versie (je eigen missies blijven) | **[robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip)** | [stappenplan](docs/1-github-en-pybricks.md#er-is-een-nieuwe-versie-bijwerken) |
-| De robot **besturen met het toetsenbord** en je missie **opnemen** (op de computer) | **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)** | [uitleg](docs/4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord) |
+| De robot **besturen met het toetsenbord** en je missie **opnemen** (op een Windows-computer, niets te installeren) | **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)** | [uitleg](docs/4-uitleg-code.md#vrij_rijdenpy-en-stuur_robotpy-rijden-met-het-toetsenbord) |
+| Hetzelfde op een **Mac** (Python nodig) | **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)** | [uitleg](docs/4-uitleg-code.md#op-een-mac-of-linux-met-python) |
 
 In Pybricks Code ([code.pybricks.com](https://code.pybricks.com)) klik je op **Import a file** en kies je het ZIP-bestand. Je hoeft het niet uit te pakken.
 
