@@ -80,7 +80,7 @@ Moet je maar één bestand hebben (bijvoorbeeld `computer/stuur_robot.py`)?
 2. Rechtsboven het bestand staat een knop met een **pijltje naar beneden** (*Download raw file*). Klik erop.
 3. Het bestand staat nu in je map *Downloads*. Voor de robot importeer je het in Pybricks Code met **Import a file**.
 
-Of download ook dit rechtstreeks: **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)**.
+Of download ook dit rechtstreeks: **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)** (Windows, niets te installeren) of **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)** (Mac, met Python).
 
 ## Een back-up maken in Pybricks Code
 

@@ -222,6 +222,10 @@ except MissionStop:
 
 Een variabele die je **binnen** een functie verandert, bestaat normaal enkel binnen die functie. Met `global naam` zeg je: "ik bedoel de variabele van buiten de functie". Dat zie je in `stuur_robot.py`.
 
+In `stuur_robot.py` staat ook `getattr(sys, "frozen", False)`. Dat betekent: "geef de waarde `sys.frozen`, en bestaat die niet, geef dan `False`". `sys.frozen` bestaat enkel als het programma als `stuur_robot.exe` draait. Zo weet het programma of iemand op de `.exe` dubbelklikte.
+
+Met `"--controle" in sys.argv` kijk je of het programma gestart werd met het woord `--controle` erachter (`sys.argv` is de lijst met alles wat achter de naam van het programma getypt werd).
+
 ## 15. Veelgemaakte fouten
 
 | Foutmelding | Oorzaak |

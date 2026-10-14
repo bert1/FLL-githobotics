@@ -8,6 +8,10 @@ Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 Vereist:
     pip install bleak pynput rich
 
+AANGEPAST: op Windows hoef je niets te installeren. Download dan
+stuur_robot.exe: dat is dit programma, samen met Python en alle
+onderdelen in één bestand. Dubbelklik erop en het start.
+
 Werkwijze:
     1. Zet de code op de hub met Pybricks Code zoals altijd (main.py).
        Druk niet op 'run', laat het programma gewoon op de hub staan.
@@ -50,12 +54,38 @@ try:
 except ImportError as fout:
     print("Er ontbreekt een onderdeel op deze computer:", fout.name)
     print("Typ in de terminal:   pip install bleak pynput rich")
+    print("Of gebruik op Windows stuur_robot.exe, daar zit alles al in.")
     sys.exit(1)
+
+# AANGEPAST (nieuw): "sys.frozen" bestaat enkel als dit programma als
+# stuur_robot.exe draait (gemaakt met PyInstaller). Zo weten we of iemand
+# erop dubbelklikte. Dan moet het venster op het einde blijven staan, anders
+# verdwijnt het voor je de opname kan lezen.
+IS_EXE = getattr(sys, "frozen", False)
+
+# AANGEPAST (nieuw): met "stuur_robot.exe --controle" kijkt GitHub na of
+# alle onderdelen in de .exe zitten, zonder met de hub te verbinden.
+if "--controle" in sys.argv:
+    # Het Bluetooth-deel voor Windows laadt bleak pas als het verbindt.
+    # Daarom laden we het hier al eens, om te zien of het erin zit.
+    if sys.platform == "win32":
+        import bleak.backends.winrt.scanner
+        import bleak.backends.winrt.client
+    print("Alle onderdelen zijn aanwezig.")
+    sys.exit(0)
 
 PYBRICKS_COMMAND_EVENT_CHAR_UUID = "c5f50002-8280-46da-89f4-6d8051e4aeef"
 
 # Pas dit aan als je de hub in Pybricks Code een andere naam gaf
 HUB_NAME = "githo botic"
+
+# AANGEPAST (nieuw): in stuur_robot.exe kan je HUB_NAME niet aanpassen.
+# Zet daarom een bestand hubnaam.txt in dezelfde map, met op de eerste
+# regel de naam van jullie hub. Staat dat bestand er, dan gebruiken we die
+# naam in plaats van de naam hierboven.
+with suppress(OSError):
+    with open("hubnaam.txt", encoding="utf-8") as bestand:
+        HUB_NAME = bestand.readline().strip() or HUB_NAME
 
 LOGBESTAND = "rijlog.txt"
 # AANGEPAST (nieuw): hier komen de opgenomen stappen, klaar om te plakken
@@ -691,7 +721,8 @@ async def main():
             "- Staat Bluetooth aan op je computer?\n"
             "- Is Pybricks Code losgekoppeld van de hub?\n"
             "- Staat de hub aan?\n"
-            "- Klopt HUB_NAME bovenaan dit bestand met de naam in Pybricks Code?",
+            "- Klopt de naam [bold]" + HUB_NAME + "[/] met de naam in Pybricks Code?\n"
+            "  Zo niet: zet een bestand hubnaam.txt met de juiste naam in deze map.",
             title="Niet gevonden", title_align="left", border_style="red"))
         return
 
@@ -755,3 +786,9 @@ async def rijden_met_dashboard(handle_rx, handle_disconnect, ready_event,
 if __name__ == "__main__":
     with suppress(asyncio.CancelledError, KeyboardInterrupt):
         asyncio.run(main())
+    # AANGEPAST (nieuw): wie op stuur_robot.exe dubbelklikte, krijgt een
+    # venster dat vanzelf sluit als het programma stopt. Daarom wachten we
+    # hier op ENTER, zodat je eerst nog alles rustig kan lezen.
+    if IS_EXE:
+        with suppress(EOFError, KeyboardInterrupt):
+            input("\nDruk op ENTER om dit venster te sluiten.")

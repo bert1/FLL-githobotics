@@ -9,6 +9,27 @@ Hoe werk je bij? Zie [1. GitHub en Pybricks](docs/1-github-en-pybricks.md#er-is-
 
 ---
 
+## Versie 2026-10-14
+
+Rijden met het toetsenbord kan nu op Windows **zonder iets te installeren**: dubbelklik op `stuur_robot.exe`.
+
+**Wat moet je doen?**
+- Download **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)** en zet het in een eigen map (bijvoorbeeld `Documenten/robot`). Dubbelklik erop om te starten. Python en `pip install` heb je hiervoor niet meer nodig.
+- Toont Windows *"Windows heeft uw pc beschermd"*? Klik op **Meer informatie** en dan **Toch uitvoeren**.
+- Heet jullie hub niet `githo botic`? Maak dan in dezelfde map een bestand `hubnaam.txt` met daarin de naam van jullie hub.
+- Werk je op een Mac? Gebruik dan zoals vroeger [stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py) met Python.
+- **De code op de hub hoeft niet te veranderen.** Enkel het versienummer in `supportcode.py` is nieuw. Wil je dat toch bijwerken, gebruik dan [robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip) zoals altijd.
+- **`missies.py` hoeft niet te veranderen.** Jullie missies blijven zoals ze zijn.
+
+**Wat is er nieuw?**
+- **stuur_robot.exe:** het programma voor de computer als Windows-app. GitHub maakt het automatisch bij elke nieuwe versie.
+- Na het stoppen blijft het venster open tot je op ENTER drukt, zodat je de opname rustig kan lezen.
+- **hubnaam.txt:** een andere naam voor de hub instellen zonder in de code te moeten werken.
+
+**Welke bestanden?** `computer/stuur_robot.py`, `robot/supportcode.py` (enkel `VERSIE`), `.github/workflows/maak-downloads.yml` en de uitleg.
+
+---
+
 ## Versie 2026-10-12b
 
 Rijden met het toetsenbord is nu veel handiger om missies te maken: de robot neemt alles op.

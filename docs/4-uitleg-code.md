@@ -74,10 +74,19 @@ Zet de robot voor elke test met de hand terug op de juiste plek: de robot weet n
 
 Hiermee rijd je de robot met het toetsenbord over de mat, en **neemt de robot alles op**. Elke beweging wordt een stap voor `missies.py`. Op de computer staan alle stappen in het bestand `opname.txt`, klaar om te plakken.
 
-**Eenmalig klaarzetten op de computer:**
-1. Installeer Python van [python.org](https://www.python.org/downloads/) (vink bij het installeren *Add Python to PATH* aan).
+**Eenmalig klaarzetten op een Windows-computer:**
+1. Download **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)**. Daarin zitten Python en alle onderdelen al. Je hoeft dus **niets te installeren**.
+2. Zet het in een eigen map, bijvoorbeeld `Documenten/robot`. Daar komen later ook `opname.txt` en `rijlog.txt`.
+3. Dubbelklik op `stuur_robot.exe`. Er opent een zwart venster: dat is het programma.
+
+De eerste keer kan Windows een blauw venster tonen: *"Windows heeft uw pc beschermd"*. Dat komt omdat het programma niet van een bekend bedrijf komt. Klik op **Meer informatie** en dan op **Toch uitvoeren**. Dat moet maar één keer.
+
+#### Op een Mac of Linux, met Python
+
+Daar werkt de `.exe` niet. Gebruik dan het Python-bestand:
+1. Installeer Python van [python.org](https://www.python.org/downloads/).
 2. Download **[stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)** en zet het in een eigen map, bijvoorbeeld `Documenten/robot`.
-3. Open een terminal (Windows: zoek naar *Opdrachtprompt*) en typ:
+3. Open een terminal en typ:
 
 ```
 pip install bleak pynput rich
@@ -85,15 +94,16 @@ pip install bleak pynput rich
 
 (`bleak` maakt de Bluetooth-verbinding, `pynput` leest het toetsenbord, `rich` tekent het overzichtelijke scherm.)
 
-Ga daarna in de terminal naar de map met `stuur_robot.py`, bijvoorbeeld met `cd Documenten/robot`.
+Ga daarna in de terminal naar de map met `stuur_robot.py`, bijvoorbeeld met `cd Documenten/robot`, en start het met `python stuur_robot.py`. Op een Mac moet je de terminal toestemming geven om het toetsenbord te lezen (Systeeminstellingen, Privacy en beveiliging, Toegankelijkheid).
 
 **Werkwijze:**
 1. Zet de code op de hub zoals altijd, met `main.py`. Je hoeft **geen** ander programma op de hub te zetten.
 2. Koppel Pybricks Code los van de hub (Bluetooth-icoontje).
-3. Start op de computer: `python stuur_robot.py`
+3. Start op de computer `stuur_robot.exe` (dubbelklikken), of op een Mac `python stuur_robot.py`.
 4. Verschijnt "Verbonden!"? Druk dan op de knop op de hub zelf om `main.py` te starten.
 5. Kies in het menu de letter **V** (lampje wit) en druk op MIDDEN.
 6. Rij! Stoppen doe je met ESC op de computer of MIDDEN op de hub. Daarna sta je terug in het menu, klaar voor de wedstrijd.
+7. Op de computer blijft de opname nog op het scherm staan. Druk op ENTER om het venster te sluiten.
 
 Je kan ook nog altijd `vrij_rijden.py` zelf op de hub laden en starten, zoals vroeger.
 
@@ -189,11 +199,12 @@ Alles wat de hub terugstuurt wordt ook bewaard in `rijlog.txt` op de computer.
 
 **Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, de stapgroottes (`STAPGROOTTES`), de snelheid in opgenomen attachment-stappen (`ATTACHMENT_SNELHEID_IN_MISSIE`), vanaf wanneer een beweging een stap wordt (`MIN_AFSTAND`, `MIN_HOEK`, ...) en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
 
-Heet jullie hub anders dan `githo botic`? Pas dan `HUB_NAME` bovenaan `stuur_robot.py` aan.
+Heet jullie hub anders dan `githo botic`? Maak dan in dezelfde map als `stuur_robot.exe` (of `stuur_robot.py`) een tekstbestand `hubnaam.txt` (met Kladblok) en typ daarin enkel de naam van jullie hub, precies zoals in Pybricks Code. Met `stuur_robot.py` kan je ook `HUB_NAME` bovenaan het bestand aanpassen.
 
 **Werkt het niet?**
 - Zegt de computer *"Deze stuur_robot.py past niet bij de code op de hub"* of *"De hub heeft een oude vrij_rijden.py"*? Download dan de nieuwste `stuur_robot.py` **en** de nieuwste code voor de hub. Ze moeten van dezelfde versie zijn.
 - Reageert de robot niet? Kijk of je in het menu wel de letter V gestart hebt.
+- Verdwijnt `stuur_robot.exe` meteen, of zegt de virusscanner van school dat het gevaarlijk is? Dat gebeurt soms met programma's die zelf gemaakt zijn. Vraag de leerkracht om het toe te laten, of gebruik `stuur_robot.py` met Python.
 
 ---
 

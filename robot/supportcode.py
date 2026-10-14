@@ -20,7 +20,7 @@
 # toen veranderd is.
 # AANGEPAST: komt er op dezelfde dag een tweede versie, dan krijgt de datum
 # een letter erachter (2026-10-12b), zodat je ze toch kan onderscheiden.
-VERSIE = "2026-10-12b"
+VERSIE = "2026-10-14"
 
 import math
 from pybricks.hubs import PrimeHub
