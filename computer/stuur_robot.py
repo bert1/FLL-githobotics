@@ -27,6 +27,12 @@ AANGEPAST: het venster is nu een overzichtelijk "dashboard" met vaste
 vakken (status, deze stap, de opname, de toetsen en meldingen), in plaats
 van tekst die voorbijschuift. Daarvoor gebruiken we de bibliotheek "rich".
 
+AANGEPAST (versie 2026-10-22): kopiëren is makkelijker. Druk C en de
+stappen staan op het klembord, klaar om met CTRL+V in missies.py te
+plakken. Na het stoppen gebeurt dat vanzelf. Elke opname wordt ook
+bewaard in alle_opnames.txt, de nieuwste bovenaan, zonder tijdstip voor
+elke regel en zonder stappen die je met BACKSPACE gewist hebt.
+
 AANGEPAST: vroeger moest je vrij_rijden.py op de hub zetten en daarna
 main.py terugzetten voor de wedstrijd. Dat hoeft niet meer: vrij rijden
 zit in het menu van main.py (letter V). vrij_rijden.py zelf starten kan
@@ -35,6 +41,7 @@ ook nog altijd.
 
 import asyncio
 import datetime
+import subprocess
 import sys
 from collections import deque
 from contextlib import suppress
@@ -87,9 +94,13 @@ with suppress(OSError):
     with open("hubnaam.txt", encoding="utf-8") as bestand:
         HUB_NAME = bestand.readline().strip() or HUB_NAME
 
-LOGBESTAND = "rijlog.txt"
 # AANGEPAST (nieuw): hier komen de opgenomen stappen, klaar om te plakken
 OPNAMEBESTAND = "opname.txt"
+# AANGEPAST (nieuw): vroeger kwam alles in rijlog.txt, met een tijdstip voor
+# elke regel, ook de stappen die je daarna wiste. Moeilijk om te kopiëren!
+# Nu komt hier elke AFGEWERKTE opname, zoals ze op het einde was. De
+# nieuwste staat bovenaan. rijlog.txt mag je weggooien.
+ARCHIEFBESTAND = "alle_opnames.txt"
 
 # AANGEPAST (nieuw): moet hetzelfde getal zijn als PROTOCOL in vrij_rijden.py
 PROTOCOL = 3
@@ -109,6 +120,7 @@ PROTOCOL = 3
 # P           : alles afspelen op wedstrijdsnelheid (zet de robot eerst
 #               terug op de startplek!)
 # ENTER       : de opname groot tonen (nog eens ENTER: terug klein)
+# C           : de stappen kopiëren, plakken doe je met CTRL+V
 # ESC         : programma stoppen
 
 # Welke toets op het toetsenbord welke actie doet, zolang je ze INGEDRUKT
@@ -151,6 +163,9 @@ ingedrukte_toetsen = set()  # bevat de ACTIES (bv. "vooruit"), niet de letters
 # AANGEPAST (nieuw): acties die maar ÉÉN keer verstuurd worden (bv. SPATIE),
 # ook als je de toets heel kort aantikt of lang vasthoudt
 eenmalige_acties = set()
+# AANGEPAST (nieuw): met deze letter kopieer je de stappen naar het klembord
+KOPIEER_TOETS = "c"
+
 # Toetsen die nu fysiek ingedrukt zijn. Houd je een toets lang vast, dan
 # stuurt de computer die toets steeds opnieuw ("autorepeat"). Zo herkennen
 # we dat en tellen we het maar één keer.
@@ -183,13 +198,6 @@ meldingen = deque(maxlen=6)
 console = Console()
 
 
-def schrijf_log(tekst):
-    """Schrijft één regel, met tijdstip, naar het logbestand op de computer."""
-    tijd = datetime.datetime.now().strftime("%H:%M:%S")
-    with open(LOGBESTAND, "a", encoding="utf-8") as bestand:
-        bestand.write("[%s] %s\n" % (tijd, tekst))
-
-
 def toon(tekst, stijl=""):
     """AANGEPAST: zet een melding onderaan het scherm, met het tijdstip.
     stijl is de kleur, bv. "green" of "bold red". Leeg = gewone tekst."""
@@ -209,6 +217,16 @@ def metingen_op_nul():
         scherm[naam] = 0
 
 
+def stappen_als_tekst():
+    """AANGEPAST (nieuw): ENKEL de stappen, zonder iets erboven of erond.
+    Precies wat je in missies.py plakt, bv.
+        ("straight", 412),                              # stap 0"""
+    regels = []
+    for i, stap in enumerate(opname):
+        regels.append("    " + stap.ljust(48) + "# stap " + str(eerste_nummer + i))
+    return "\n".join(regels) + "\n"
+
+
 def opname_als_tekst():
     """Maakt de tekst voor opname.txt: de stappen met hun nummer."""
     tijd = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
@@ -219,9 +237,9 @@ def opname_als_tekst():
     ]
     if vooraf_uitleg:
         regels.append(vooraf_uitleg)
-    for i, stap in enumerate(opname):
-        regels.append("    " + stap.ljust(48) + "# stap " + str(eerste_nummer + i))
-    if not opname:
+    if opname:
+        regels.append(stappen_als_tekst().rstrip())   # AANGEPAST: zie hierboven
+    else:
         regels.append("# (nog geen stappen)")
     return "\n".join(regels) + "\n"
 
@@ -231,6 +249,60 @@ def schrijf_opname():
     het bestand altijd klopt, ook als het programma plots stopt."""
     with open(OPNAMEBESTAND, "w", encoding="utf-8") as bestand:
         bestand.write(opname_als_tekst())
+
+
+def bewaar_in_archief():
+    """AANGEPAST (nieuw): zet de opname BOVENAAN in alle_opnames.txt.
+    Dit gebeurt als je een nieuwe opname begint (R, of opnieuw V op de hub)
+    en als je stopt. Zo verlies je nooit een oude opname, en staat de
+    nieuwste altijd bovenaan. Gewiste stappen (BACKSPACE) staan er niet in."""
+    if not opname:
+        return
+    tijd = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
+    blok = "# ===== Opname van " + tijd + " (" + str(len(opname)) + " stappen) =====\n"
+    if vooraf_uitleg:
+        blok += vooraf_uitleg + "\n"
+    blok += stappen_als_tekst() + "\n"
+    # Eerst lezen wat er al in staat (bestaat het bestand nog niet, dan is
+    # dat leeg), en dan alles opnieuw schrijven met het nieuwe blok bovenaan.
+    oud = ""
+    with suppress(OSError):
+        with open(ARCHIEFBESTAND, encoding="utf-8") as bestand:
+            oud = bestand.read()
+    with open(ARCHIEFBESTAND, "w", encoding="utf-8") as bestand:
+        bestand.write(blok + oud)
+
+
+def kopieer_naar_klembord(tekst):
+    """AANGEPAST (nieuw): zet tekst op het klembord, zoals CTRL+C.
+    Elk besturingssysteem heeft daar een eigen klein programma voor:
+    Windows "clip", Mac "pbcopy", Linux "xclip". subprocess.run() start
+    dat programma en geeft het de tekst. Geeft True terug als het lukte."""
+    try:
+        if sys.platform == "win32":
+            # clip wil de tekst in "utf-16", anders worden letters als é raar
+            subprocess.run("clip", input=tekst.encode("utf-16"), check=True)
+        elif sys.platform == "darwin":
+            subprocess.run("pbcopy", input=tekst.encode("utf-8"), check=True)
+        else:
+            subprocess.run(["xclip", "-selection", "clipboard"],
+                           input=tekst.encode("utf-8"), check=True)
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+
+def kopieer_opname():
+    """AANGEPAST (nieuw): de stappen naar het klembord (toets C)."""
+    if not opname:
+        toon("Er zijn nog geen stappen om te kopiëren.", "yellow")
+        return False
+    if kopieer_naar_klembord(stappen_als_tekst()):
+        toon("%d stappen gekopieerd. Plak ze met CTRL+V in missies.py." % len(opname),
+             "bold green")
+        return True
+    toon("Kopiëren lukt niet op deze computer. Open " + OPNAMEBESTAND + ".", "bold red")
+    return False
 
 
 def verwerk_hub_regel(tekst):
@@ -253,6 +325,10 @@ def verwerk_hub_regel(tekst):
         # "NIEUW 0" of, uit de testmodus, "NIEUW 5 B 0": nieuwe stappen
         # vanaf nummer 5, nadat de robot missie B vanaf stap 0 reed
         stukken = tekst.split()
+        # AANGEPAST: eerst de vorige opname bewaren in alle_opnames.txt
+        if opname:
+            bewaar_in_archief()
+            toon("Vorige opname bewaard in " + ARCHIEFBESTAND + ".", "dim")
         eerste_nummer = int(stukken[1])
         if len(stukken) >= 4:
             vooraf_uitleg = ("# De robot reed eerst MISSIE_%s van stap %s tot en met stap %d.\n"
@@ -275,7 +351,6 @@ def verwerk_hub_regel(tekst):
         metingen_op_nul()
         schrijf_opname()
         toon("Stap " + delen[1] + " opgenomen: " + delen[2], "green")
-        schrijf_log("STAP " + delen[1] + ": " + delen[2])
         return
 
     if delen[0] == "WEG" and len(delen) >= 2:
@@ -284,14 +359,12 @@ def verwerk_hub_regel(tekst):
         metingen_op_nul()
         schrijf_opname()
         toon("Stap " + delen[1] + " gewist, de robot reed terug.", "yellow")
-        schrijf_log("WEG stap " + delen[1])
         return
 
     if delen[0] == "KLAAR":
         return     # de hub heeft de stap afgesloten, er is niets te tonen
 
     # --- Gewone berichten van de hub ---
-    schrijf_log("HUB: " + tekst)
     if tekst.startswith("githobotics code versie"):
         scherm["hub_versie"] = tekst.split()[-1]
     elif tekst.startswith("Stapmodus"):
@@ -351,6 +424,10 @@ def on_press(key):
         return
 
     if not isinstance(naam, str):
+        return
+    if naam == KOPIEER_TOETS:
+        # AANGEPAST (nieuw): kopiëren gebeurt enkel op de computer
+        kopieer_opname()
         return
     if naam in EENMALIGE_TOETSEN:
         eenmalige_acties.add(EENMALIGE_TOETSEN[naam])
@@ -536,7 +613,7 @@ def maak_toetsen(kort):
             ("Q D", "draaien", "BACKSPACE", "stap terug", "1 2 3", "stapgrootte"),
             ("Z+Q", "bocht", "P", "afspelen", "ENTER", "opname groot"),
             ("I K", "linker arm", "R", "nieuwe opname", "ESC", "stoppen"),
-            ("O L", "rechter arm", "", "", "MIDDEN", "noodstop hub"),
+            ("O L", "rechter arm", "C", "kopiëren", "MIDDEN", "noodstop hub"),
             ("SHIFT", "extra traag", "", "", "", ""),
         ]
     else:
@@ -545,7 +622,7 @@ def maak_toetsen(kort):
             ("Q D", "draaien", "BACKSPACE", "laatste stap terug", "1 2 3", "stapgrootte"),
             ("Z+Q", "bocht", "P", "afspelen (wedstrijd)", "ENTER", "opname groot/klein"),
             ("I K", "linker arm", "R", "nieuwe opname", "ESC", "stoppen"),
-            ("O L", "rechter arm", "", "", "MIDDEN", "noodstop (op de hub)"),
+            ("O L", "rechter arm", "C", "kopiëren (CTRL+V)", "MIDDEN", "noodstop (op de hub)"),
             ("SHIFT", "extra traag", "", "", "", ""),
         ]
     for t1, u1, t2, u2, t3, u3 in rijen:
@@ -640,7 +717,6 @@ async def main():
     def handle_disconnect(_):
         zet_fase("Verbinding met de hub verbroken", "red")
         toon("Verbinding met de hub verbroken.", "bold red")
-        schrijf_log("Verbinding verbroken.")
         if not main_task.done():
             main_task.cancel()
 
@@ -697,7 +773,6 @@ async def main():
 
             verwerk_hub_regel(regel)
 
-    schrijf_log("=== Nieuwe sessie gestart ===")
     toon("Zorg dat Pybricks Code losgekoppeld is van de hub.")
 
     # AANGEPAST: valt de verbinding weg, dan stopt het programma (zie
@@ -726,16 +801,30 @@ async def main():
             title="Niet gevonden", title_align="left", border_style="red"))
         return
 
-    # Na het stoppen: de opname nog eens tonen in de gewone terminal
-    console.print(Panel(Syntax(opname_als_tekst().rstrip(), "python", background_color="default"),
-                        title="Opname, ook bewaard in " + OPNAMEBESTAND,
-                        title_align="left", border_style="green"))
+    # AANGEPAST: na het stoppen de opname nog eens tonen in de gewone
+    # terminal. Vroeger stond ze in een kader: wie ze selecteerde, kopieerde
+    # ook de randen mee. Nu staan de stappen er gewoon, zonder kader en
+    # zonder tijdstip, en staan ze meteen ook op het klembord.
+    bewaar_in_archief()
+    console.print()
+    console.rule("[bold green]Opname[/]", align="left", style="green")
+    if vooraf_uitleg:
+        print(vooraf_uitleg)
+    if opname:
+        print(stappen_als_tekst(), end="")   # gewone print: geen kleuren, geen kader
+    else:
+        print("(geen stappen opgenomen)")
+    console.rule(style="green")
+    if opname and kopieer_naar_klembord(stappen_als_tekst()):
+        console.print("[bold green]De stappen staan al op het klembord.[/] "
+                      "Plak ze in missies.py met CTRL+V (op een Mac: CMD+V).")
+    elif opname:
+        console.print("Kopieer de stappen hierboven, of open " + OPNAMEBESTAND + ".")
+    console.print("[dim]Ook bewaard in " + OPNAMEBESTAND + " en, met alle vorige opnames, in "
+                  + ARCHIEFBESTAND + ".[/]")
     if verbroken:
         console.print("[bold red]De verbinding met de hub viel weg.[/] "
-                      "Wat al opgenomen was, staat hierboven en in " + OPNAMEBESTAND + ".")
-    else:
-        console.print("[green]Gestopt.[/] Kopieer de stappen naar missies.py.")
-    schrijf_log("=== Sessie gestopt ===")
+                      "Wat al opgenomen was, staat hierboven.")
 
 
 async def rijden_met_dashboard(handle_rx, handle_disconnect, ready_event,

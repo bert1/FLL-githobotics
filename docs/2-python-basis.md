@@ -248,6 +248,7 @@ Deze functies zitten in Python zelf, je hoeft ze niet te importeren.
 | `len(x)` | hoeveel elementen | `len(MISSIE_A)` |
 | `abs(x)` | getal zonder minteken | `abs(-5)` is `5` |
 | `round(x)` | afronden | `round(2.7)` is `3` |
+| `min(a, b)` | het kleinste getal | `min(15, 25)` is `15` |
 | `str(x)` | getal omzetten naar tekst | `"stap " + str(4)` is `"stap 4"` |
 | `sorted(x)` | in volgorde zetten | `sorted(["C", "A", "B"])` is `["A", "B", "C"]` |
 | `isinstance(x, soort)` | is x van deze soort? | `isinstance(300, int)` is `True` |
