@@ -18,6 +18,8 @@
 #      een stuk van een missie gereden heeft. Zo neem je het VOLGENDE
 #      stuk van die missie op, vanaf de plek waar de missie eindigt.
 # AANGEPAST (nieuw): met P speel je de opname af op wedstrijdsnelheid.
+# AANGEPAST (versie 2026-10-22b): de robot stopt meteen als je een toets
+# loslaat, en de gyro stuurt pas bij na een langere wachttijd.
 # AANGEPAST (versie 2026-10-22): rechtdoor rijden wordt nu altijd een
 # "straight" (geen kleine "turn" of "curve" meer erbij), de robot rijdt
 # trager, en hij vertrekt rustig zodat hij niet meer schommelt.
@@ -44,7 +46,8 @@ from uselect import poll
 # AANGEPAST: de robot reageerde te wild. Rijden was 120, draaien was 45.
 RIJSNELHEID = 80                    # mm per seconde
 DRAAISNELHEID = 30                  # graden per seconde
-ATTACHMENT_SNELHEID = 150           # graden per seconde
+ATTACHMENT_SNELHEID = 100           # graden per seconde
+                                    # AANGEPAST: was 150, de arm schoot te ver door
 
 # Met SHIFT ingedrukt: nog trager, voor de laatste millimeters
 # AANGEPAST: ook trager. Rijden was 40, draaien was 15.
@@ -52,10 +55,16 @@ PRECIEZE_RIJSNELHEID = 25
 PRECIEZE_DRAAISNELHEID = 10
 PRECIEZE_ATTACHMENT_SNELHEID = 40
 
-# AANGEPAST (nieuw): hoe snel de robot op gang komt en afremt.
-# Kleiner = zachter vertrekken en stoppen. (Was 200 en 100.)
+# AANGEPAST (nieuw): hoe snel de robot op gang komt. Kleiner = zachter
+# vertrekken. (Was 200 en 100.)
 RIJ_VERSNELLING = 150               # mm per seconde, per seconde
 DRAAI_VERSNELLING = 80              # graden per seconde, per seconde
+# AANGEPAST (nieuw): hoe snel de robot AFREMT als je de toets loslaat.
+# Vroeger was dat even traag als het vertrekken: de robot reed dan nog
+# een stuk door. Nu is afremmen veel sneller dan vertrekken, zodat de
+# robot meteen stilstaat. (Groter = harder remmen.)
+RIJ_AFREMMEN = 1000                 # mm per seconde, per seconde
+DRAAI_AFREMMEN = 600                # graden per seconde, per seconde
 
 # AANGEPAST (nieuw): RUSTIG VERTREKKEN bij rechtdoor rijden.
 # Tussen de tandwielen zit een beetje speling. Vertrekt de robot meteen
@@ -65,6 +74,18 @@ DRAAI_VERSNELLING = 80              # graden per seconde, per seconde
 # motoren de speling weg en staan ze "klaar". Pas daarna versnelt hij.
 AANLOOP_SNELHEID = 15     # mm per seconde
 AANLOOP_TIJD = 250        # ms (een kwart seconde)
+
+# AANGEPAST (nieuw): DE GYRO PAS LATER LATEN BIJSTUREN (enkel bij onze
+# eigen PID, dus als GEBRUIK_EIGEN_PID = True).
+# Na de aanloop rijdt de robot eerst nog GYRO_WACHTTIJD ms op volle snelheid
+# zonder gyro. De wielen houden hem dan recht (Pybricks laat beide wielen
+# even snel draaien). Pas daarna stuurt de gyro bij, en dan nog niet meteen
+# hard: de bijsturing groeit in GYRO_INLOOPTIJD ms van niets tot helemaal.
+# Is dat nodig tijdens het opnemen? Niet echt: wijkt de robot een beetje
+# af, dan telt die afwijking toch mee in de volgende draai (zie
+# verschuif_begin). Zet GYRO_WACHTTIJD hoger als de robot nog schommelt.
+GYRO_WACHTTIJD = 1500     # ms
+GYRO_INLOOPTIJD = 1000    # ms
 
 # STAPMODUS (aan/uit met M): elke tik op een toets = één exacte, kleine stap
 # AANGEPAST: vroeger was er maar één stapgrootte. Nu kies je er een met de
@@ -160,9 +181,20 @@ def rij_instellingen():
         DRIVE_BASE.use_gyro(False)
     else:
         DRIVE_BASE.use_gyro(True)
-    # AANGEPAST: de versnellingen staan nu bovenaan bij de instellingen
-    DRIVE_BASE.settings(straight_speed=100, straight_acceleration=RIJ_VERSNELLING,
-                        turn_rate=30, turn_acceleration=DRAAI_VERSNELLING)
+    # AANGEPAST: de versnellingen staan nu bovenaan bij de instellingen.
+    # Een paar haakjes (versnellen, afremmen) geeft Pybricks twee getallen:
+    # een voor het vertrekken en een voor het afremmen.
+    try:
+        DRIVE_BASE.settings(straight_speed=100,
+                            straight_acceleration=(RIJ_VERSNELLING, RIJ_AFREMMEN),
+                            turn_rate=30,
+                            turn_acceleration=(DRAAI_VERSNELLING, DRAAI_AFREMMEN))
+    except (TypeError, ValueError):
+        # Een heel oude Pybricks-versie kent geen apart afremmen. Dan
+        # gebruiken we één getal, en remt de robot even traag als hij vertrekt.
+        print("Werk de Pybricks-firmware bij, dan stopt de robot sneller.")
+        DRIVE_BASE.settings(straight_speed=100, straight_acceleration=RIJ_VERSNELLING,
+                            turn_rate=30, turn_acceleration=DRAAI_VERSNELLING)
 
 
 def nulpunt_zetten():
@@ -678,7 +710,14 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
                     aanloop_begin = None
                 elif aanloop_begin is None:
                     aanloop_begin = klok.time()    # het rechtdoor rijden begint nu
-                in_aanloop = rechtdoor and klok.time() - aanloop_begin < AANLOOP_TIJD
+                if rechtdoor:
+                    # hoelang rijdt de robot al rechtdoor? (in ms)
+                    rechtdoor_tijd = klok.time() - aanloop_begin
+                else:
+                    rechtdoor_tijd = 0
+                in_aanloop = rechtdoor and rechtdoor_tijd < AANLOOP_TIJD
+                # AANGEPAST (nieuw): na de aanloop nog even zonder gyro rijden
+                zonder_gyro = rechtdoor_tijd < AANLOOP_TIJD + GYRO_WACHTTIJD
 
                 if in_aanloop:
                     # De eerste kwart seconde: heel traag en zonder bijsturen,
@@ -692,8 +731,9 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
                     doel_hoek = hoek
                     integraal = 0
                     DRIVE_BASE.drive(traag, 0)
-                elif not GEBRUIK_EIGEN_PID or not rechtdoor:
-                    # Ingebouwde regeling, of je draait bewust, of je staat stil:
+                elif not GEBRUIK_EIGEN_PID or not rechtdoor or zonder_gyro:
+                    # Ingebouwde regeling, of je draait bewust, of je staat stil,
+                    # of de gyro mag nog niet bijsturen (AANGEPAST):
                     # de richting waar de robot NU naar kijkt wordt het nieuwe doel.
                     doel_hoek = hoek
                     integraal = 0
@@ -716,6 +756,13 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
                     afgeleide = -draaisnelheid_gefilterd
 
                     correctie = KP * fout + KI * integraal + KD * afgeleide
+
+                    # AANGEPAST (nieuw): de bijsturing groeit langzaam van 0
+                    # (net na de wachttijd) tot helemaal (na GYRO_INLOOPTIJD).
+                    # 'deel' gaat van 0.0 naar 1.0.
+                    deel = (rechtdoor_tijd - AANLOOP_TIJD - GYRO_WACHTTIJD) / GYRO_INLOOPTIJD
+                    if deel < 1:
+                        correctie = correctie * deel
                     if correctie > MAX_CORRECTIE:
                         correctie = MAX_CORRECTIE
                     if correctie < -MAX_CORRECTIE:

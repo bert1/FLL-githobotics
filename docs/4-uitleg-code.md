@@ -198,11 +198,13 @@ Als je stopt (ESC of MIDDEN), kom je terug in het menu.
 - Heel kleine bewegingen (minder dan 3 mm of 1 graad) worden geen stap. Die tellen mee bij de volgende stap.
 - De snelheid in een opgenomen attachment-stap is altijd 200. Pas ze daarna gerust aan in `missies.py`.
 - Als je rechtdoor vertrekt, rijdt de robot eerst een kwart seconde heel traag. Zo trekken beide motoren de speling tussen de tandwielen weg, en schommelt de robot niet bij het vertrekken.
+- Daarna rijdt hij nog anderhalve seconde zonder gyro: de wielen houden hem recht. Pas dan stuurt de gyro bij, eerst heel zacht. Wijkt de robot toch een beetje af, dan is dat niet erg: die afwijking telt mee in de volgende draai.
+- Laat je een toets los, dan remt de robot hard en staat hij meteen stil. Ook de attachments stoppen meteen. De computer stuurt een losgelaten toets ook meteen door, zonder te wachten.
 - `rijlog.txt` van een vorige versie wordt niet meer gebruikt. Je mag het weggooien.
 
 **Veiligheid:** komt er 0,5 seconde lang niets binnen van de computer (verbinding weg), dan stopt de robot vanzelf.
 
-**Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, hoe zacht de robot vertrekt en afremt (`RIJ_VERSNELLING`, `DRAAI_VERSNELLING`), het rustig vertrekken (`AANLOOP_SNELHEID`, `AANLOOP_TIJD`), de stapgroottes (`STAPGROOTTES`), de snelheid in opgenomen attachment-stappen (`ATTACHMENT_SNELHEID_IN_MISSIE`), vanaf wanneer een beweging een stap wordt (`MIN_AFSTAND`, `MIN_HOEK`, ...) en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
+**Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, hoe zacht de robot vertrekt (`RIJ_VERSNELLING`, `DRAAI_VERSNELLING`), hoe hard hij afremt (`RIJ_AFREMMEN`, `DRAAI_AFREMMEN`), het rustig vertrekken (`AANLOOP_SNELHEID`, `AANLOOP_TIJD`), hoelang de gyro wacht voor hij bijstuurt (`GYRO_WACHTTIJD`, `GYRO_INLOOPTIJD`), de stapgroottes (`STAPGROOTTES`), de snelheid in opgenomen attachment-stappen (`ATTACHMENT_SNELHEID_IN_MISSIE`), vanaf wanneer een beweging een stap wordt (`MIN_AFSTAND`, `MIN_HOEK`, ...) en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
 
 Heet jullie hub anders dan `githo botic`? Maak dan in dezelfde map als `stuur_robot.exe` (of `stuur_robot.py`) een tekstbestand `hubnaam.txt` (met Kladblok) en typ daarin enkel de naam van jullie hub, precies zoals in Pybricks Code. Met `stuur_robot.py` kan je ook `HUB_NAME` bovenaan het bestand aanpassen.
 

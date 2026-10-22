@@ -9,6 +9,26 @@ Hoe werk je bij? Zie [1. GitHub en Pybricks](docs/1-github-en-pybricks.md#er-is-
 
 ---
 
+## Versie 2026-10-22b
+
+De robot reed nog door na het loslaten van een toets, en hij stuurde nog te vroeg bij.
+
+**Wat moet je doen?**
+- Download [robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip) en importeer het in Pybricks Code. Kies telkens voor vervangen.
+- Download ook de nieuwe **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)** (of op een Mac [stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)).
+- Zegt Pybricks Code *"Werk de Pybricks-firmware bij, dan stopt de robot sneller"*? Installeer dan de nieuwste firmware op de hub (in Pybricks Code, via het tandwiel).
+- **`missies.py` hoeft niet te veranderen.** Jullie missies blijven zoals ze zijn.
+
+**Wat is er nieuw?**
+- **Meteen stoppen:** laat je een toets los, dan remt de robot nu hard (`RIJ_AFREMMEN`, `DRAAI_AFREMMEN`). Vertrekken blijft zacht.
+- **Sneller doorgeven:** de computer stuurt een ingedrukte of losgelaten toets meteen naar de hub, in plaats van eerst even te wachten.
+- **Attachments** draaien trager (100 in plaats van 150 graden per seconde), zodat ze minder ver doorschieten.
+- **Gyro langer uit:** na het rustig vertrekken rijdt de robot nog anderhalve seconde zonder gyro (`GYRO_WACHTTIJD`). Daarna stuurt de gyro bij, eerst heel zacht (`GYRO_INLOOPTIJD`). Schommelt hij nog? Zet `GYRO_WACHTTIJD` bovenaan `vrij_rijden.py` hoger.
+
+**Welke bestanden?** `robot/vrij_rijden.py`, `computer/stuur_robot.py`, `robot/supportcode.py` (enkel `VERSIE`) en de uitleg.
+
+---
+
 ## Versie 2026-10-22
 
 Jullie opmerkingen over rijden met het toetsenbord zijn verwerkt: makkelijker kopiëren, geen rare kleine stappen meer, en de robot rijdt rustiger.

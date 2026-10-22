@@ -160,6 +160,10 @@ STAPGROOTTE_UITLEG = {
 }
 
 ingedrukte_toetsen = set()  # bevat de ACTIES (bv. "vooruit"), niet de letters
+# AANGEPAST (nieuw): om meteen te kunnen versturen als je een toets
+# indrukt of loslaat (zie toetsen_veranderd hieronder)
+lus = None                  # de asyncio-lus die met de hub praat
+toetsen_veranderd = None    # een "seintje": er is een toets veranderd
 # AANGEPAST (nieuw): acties die maar ÉÉN keer verstuurd worden (bv. SPATIE),
 # ook als je de toets heel kort aantikt of lang vasthoudt
 eenmalige_acties = set()
@@ -387,6 +391,15 @@ def verwerk_hub_regel(tekst):
         toon("Hub: " + tekst, "dim")
 
 
+def geef_seintje():
+    """AANGEPAST (nieuw): laat de lus die met de hub praat weten dat er een
+    toets veranderd is, zodat ze het nieuwe commando METEEN stuurt.
+    on_press en on_release lopen in een andere "draad" (thread) dan die lus.
+    Daarom moet het via call_soon_threadsafe: "doe dit veilig, zodra je kan"."""
+    if lus is not None:
+        lus.call_soon_threadsafe(toetsen_veranderd.set)
+
+
 def on_press(key):
     global stapgrootte
 
@@ -459,6 +472,19 @@ def on_release(key):
 
     if isinstance(naam, str) and naam in TOETSEN:
         ingedrukte_toetsen.discard(TOETSEN[naam])
+
+
+def bij_indrukken(key):
+    """AANGEPAST (nieuw): eerst de toets verwerken, DAN het seintje geven.
+    Andersom zou de lus misschien nog het oude commando sturen."""
+    on_press(key)
+    geef_seintje()
+
+
+def bij_loslaten(key):
+    """AANGEPAST (nieuw): idem bij loslaten. Zo stopt de robot meteen."""
+    on_release(key)
+    geef_seintje()
 
 
 def maak_commando():
@@ -832,6 +858,7 @@ async def rijden_met_dashboard(handle_rx, handle_disconnect, ready_event,
     """AANGEPAST (nieuw): verbinden met de hub en rijden, terwijl het
     dashboard op het scherm staat. Geeft een LookupError als de hub niet
     gevonden wordt."""
+    global lus, toetsen_veranderd     # AANGEPAST: die worden hieronder ingevuld
     # Vanaf hier tekent "Live" het scherm, 10 keer per seconde.
     # screen=True: het dashboard krijgt het hele terminalvenster. Als het
     # programma stopt, komt je gewone terminal terug.
@@ -853,7 +880,11 @@ async def rijden_met_dashboard(handle_rx, handle_disconnect, ready_event,
                     response=True,
                 )
 
-            luisteraar = keyboard.Listener(on_press=on_press, on_release=on_release)
+            # AANGEPAST (nieuw): het seintje klaarzetten voor geef_seintje()
+            lus = asyncio.get_running_loop()
+            toetsen_veranderd = asyncio.Event()
+
+            luisteraar = keyboard.Listener(on_press=bij_indrukken, on_release=bij_loslaten)
             luisteraar.start()
 
             zet_fase("Verbonden! Start main.py met de knop op de hub, kies V en druk MIDDEN.",
@@ -861,8 +892,14 @@ async def rijden_met_dashboard(handle_rx, handle_disconnect, ready_event,
             toon("Verbonden met " + HUB_NAME + ".", "green")
 
             while "stoppen" not in ingedrukte_toetsen:
+                # AANGEPAST: vroeger wachtten we hier altijd 0,02 seconde.
+                # Nu wachten we hoogstens 0,02 seconde, maar stoppen we het
+                # wachten meteen als je een toets indrukt of loslaat. Zo
+                # hoort de hub het sneller, en stopt de robot sneller.
+                toetsen_veranderd.clear()
                 await send(maak_commando())
-                await asyncio.sleep(0.02)
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(toetsen_veranderd.wait(), 0.02)
 
             zet_fase("Stoppen...", "yellow")
             await send(maak_commando())  # laatste commando (met stoppen=1) sluit de hub-lus af
