@@ -33,7 +33,7 @@ Wat er in elke versie veranderd is, lees je in **[WIJZIGINGEN.md](WIJZIGINGEN.md
 | [`robot/main.py`](robot/main.py) | het wedstrijdprogramma: menu om missies te kiezen, te testen en (letter V) met het toetsenbord te rijden |
 | [`robot/supportcode.py`](robot/supportcode.py) | instellingen van de robot (poorten, wielmaat) en alle hulpfuncties |
 | [`robot/vrij_rijden.py`](robot/vrij_rijden.py) | de robot laten rijden met het toetsenbord en alles opnemen als stappen |
-| [`computer/stuur_robot.py`](computer/stuur_robot.py) | draait op de **computer**: leest het toetsenbord, stuurt dat naar de hub en schrijft de opname in `opname.txt` |
+| [`computer/stuur_robot.py`](computer/stuur_robot.py) | draait op de **computer**: leest het toetsenbord, stuurt dat naar de hub en schrijft de opname in `opname.txt` (en alle opnames in `alle_opnames.txt`). Met C kopieer je de stappen. |
 | [`docs/`](docs) | alle uitleg |
 | [`WIJZIGINGEN.md`](WIJZIGINGEN.md) | wat er in elke versie veranderd is |
 

@@ -18,6 +18,9 @@
 #      een stuk van een missie gereden heeft. Zo neem je het VOLGENDE
 #      stuk van die missie op, vanaf de plek waar de missie eindigt.
 # AANGEPAST (nieuw): met P speel je de opname af op wedstrijdsnelheid.
+# AANGEPAST (versie 2026-10-22): rechtdoor rijden wordt nu altijd een
+# "straight" (geen kleine "turn" of "curve" meer erbij), de robot rijdt
+# trager, en hij vertrekt rustig zodat hij niet meer schommelt.
 # Uitleg voor beginners: zie docs/4-uitleg-code.md op GitHub
 # =====================================================================
 
@@ -38,14 +41,30 @@ from uselect import poll
 # INSTELLINGEN (pas hier aan, nergens anders)
 # =====================================================================
 # Gewone snelheid (Z/S ingedrukt houden)
-RIJSNELHEID = 120                   # mm per seconde
-DRAAISNELHEID = 45                  # graden per seconde
+# AANGEPAST: de robot reageerde te wild. Rijden was 120, draaien was 45.
+RIJSNELHEID = 80                    # mm per seconde
+DRAAISNELHEID = 30                  # graden per seconde
 ATTACHMENT_SNELHEID = 150           # graden per seconde
 
 # Met SHIFT ingedrukt: nog trager, voor de laatste millimeters
-PRECIEZE_RIJSNELHEID = 40
-PRECIEZE_DRAAISNELHEID = 15
+# AANGEPAST: ook trager. Rijden was 40, draaien was 15.
+PRECIEZE_RIJSNELHEID = 25
+PRECIEZE_DRAAISNELHEID = 10
 PRECIEZE_ATTACHMENT_SNELHEID = 40
+
+# AANGEPAST (nieuw): hoe snel de robot op gang komt en afremt.
+# Kleiner = zachter vertrekken en stoppen. (Was 200 en 100.)
+RIJ_VERSNELLING = 150               # mm per seconde, per seconde
+DRAAI_VERSNELLING = 80              # graden per seconde, per seconde
+
+# AANGEPAST (nieuw): RUSTIG VERTREKKEN bij rechtdoor rijden.
+# Tussen de tandwielen zit een beetje speling. Vertrekt de robot meteen
+# snel, dan "pakt" het ene wiel iets vroeger dan het andere. De robot draait
+# dan een klein beetje, de PID stuurt bij, en de robot schommelt.
+# Daarom rijdt de robot eerst heel even heel traag: zo trekken beide
+# motoren de speling weg en staan ze "klaar". Pas daarna versnelt hij.
+AANLOOP_SNELHEID = 15     # mm per seconde
+AANLOOP_TIJD = 250        # ms (een kwart seconde)
 
 # STAPMODUS (aan/uit met M): elke tik op een toets = één exacte, kleine stap
 # AANGEPAST: vroeger was er maar één stapgrootte. Nu kies je er een met de
@@ -66,8 +85,8 @@ ATTACHMENT_SNELHEID_IN_MISSIE = 200
 MIN_AFSTAND = 3          # mm
 MIN_HOEK = 1             # graden
 MIN_ATTACHMENT = 2       # motorgraden
-# Reed de robot vooruit EN draaide hij tegelijk (Z en Q samen), dan wordt
-# het een bocht ("curve"), maar enkel als beide groot genoeg zijn
+# Hield je Z en Q (of D) samen in, dan wordt het een bocht ("curve"), maar
+# enkel als de robot genoeg reed EN genoeg draaide
 BOCHT_MIN_AFSTAND = 20   # mm
 BOCHT_MIN_HOEK = 5       # graden
 
@@ -82,7 +101,8 @@ KP = 2.0      # P: hoe hard corrigeren we bij een fout van 1 graad
 KI = 1.0      # I: wegwerken van een kleine fout die blijft hangen
 KD = 0.1      # D: afremmen van de correctie zodat de robot niet gaat slingeren
 DODE_ZONE = 0.3       # afwijkingen kleiner dan dit (graden) negeren: dat is ruis
-MAX_CORRECTIE = 20    # nooit harder bijsturen dan 20 graden per seconde
+MAX_CORRECTIE = 10    # nooit harder bijsturen dan 10 graden per seconde
+                      # AANGEPAST: was 20, dat gaf schommelen bij lage snelheid
 MAX_INTEGRAAL = 10    # voorkomt dat het I-deel ongecontroleerd groeit
 
 LUS_TIJD = 10         # ms: de hub rekent de PID 100 keer per seconde
@@ -140,8 +160,9 @@ def rij_instellingen():
         DRIVE_BASE.use_gyro(False)
     else:
         DRIVE_BASE.use_gyro(True)
-    DRIVE_BASE.settings(straight_speed=100, straight_acceleration=200,
-                        turn_rate=30, turn_acceleration=100)
+    # AANGEPAST: de versnellingen staan nu bovenaan bij de instellingen
+    DRIVE_BASE.settings(straight_speed=100, straight_acceleration=RIJ_VERSNELLING,
+                        turn_rate=30, turn_acceleration=DRAAI_VERSNELLING)
 
 
 def nulpunt_zetten():
@@ -212,41 +233,61 @@ def wacht_tot_stilstand():
     wait(50)
 
 
-def maak_stappen(afstand, hoek, links, rechts):
-    """Maakt van een gemeten beweging stappen voor missies.py.
-    Geeft een lijst terug (leeg als de robot amper bewoog)."""
-    stappen = []
+def maak_stap(soort, afstand, hoek, links, rechts):
+    """AANGEPAST: maakt van een gemeten beweging EEN stap voor missies.py.
+    'soort' is de soort beweging die je met de toetsen maakte: "rijden",
+    "draaien", "bocht", "links_att" of "rechts_att".
+
+    Vroeger keken we enkel naar de metingen. Reed je rechtdoor en week de
+    robot daarbij 2 graden af (geen robot rijdt perfect recht), dan kwam er
+    ook een ("turn", 2) of zelfs een "curve" in de opname. Nu bepalen de
+    TOETSEN de soort stap: Z of S wordt altijd een "straight", Q of D
+    altijd een "turn". Die kleine afwijking gaat niet verloren: ze telt mee
+    in de volgende draai (zie verschuif_begin hieronder).
+
+    Geeft twee dingen terug:
+      de stap, bv. ("straight", 412)
+      de beweging van die stap: (afstand, hoek, links, rechts)
+    Bewoog de robot te weinig voor een stap, dan krijg je (None, None)."""
     afstand = round(afstand)
     hoek = round(hoek)
+    links = round(links)
+    rechts = round(rechts)
 
-    if abs(afstand) >= BOCHT_MIN_AFSTAND and abs(hoek) >= BOCHT_MIN_HOEK:
-        # Gereden EN gedraaid: een bocht. Pybricks wil de straal van de
-        # cirkel en hoeveel graden je over die cirkel rijdt.
-        # Een booglengte is straal x hoek (de hoek in radialen: graden
-        # maal pi gedeeld door 180). Dus: straal = afstand / hoek_in_radialen.
-        # Zo werken de tekens (+ of -) bij Pybricks:
-        #   straal positief = vooruit, straal negatief = achteruit
-        #   graden positief = naar rechts als je vooruit rijdt
-        # Rijd je achteruit, dan keert het teken van de graden om.
-        straal = round(afstand / abs(hoek * math.pi / 180))
-        if afstand > 0:
-            graden = hoek
+    if soort == "bocht":
+        if abs(afstand) >= BOCHT_MIN_AFSTAND and abs(hoek) >= BOCHT_MIN_HOEK:
+            # Gereden EN gedraaid: een bocht. Pybricks wil de straal van de
+            # cirkel en hoeveel graden je over die cirkel rijdt.
+            # Een booglengte is straal x hoek (de hoek in radialen: graden
+            # maal pi gedeeld door 180). Dus: straal = afstand / hoek_in_radialen.
+            # Zo werken de tekens (+ of -) bij Pybricks:
+            #   straal positief = vooruit, straal negatief = achteruit
+            #   graden positief = naar rechts als je vooruit rijdt
+            # Rijd je achteruit, dan keert het teken van de graden om.
+            straal = round(afstand / abs(hoek * math.pi / 180))
+            if afstand > 0:
+                graden = hoek
+            else:
+                graden = -hoek
+            return ("curve", straal, graden), (afstand, hoek, 0, 0)
+        # Te kleine bocht: dan wordt het gewoon rijden of draaien,
+        # afhankelijk van wat de robot vooral deed.
+        if abs(hoek) >= BOCHT_MIN_HOEK:
+            soort = "draaien"
         else:
-            graden = -hoek
-        stappen.append(("curve", straal, graden))
-    else:
-        if abs(afstand) >= MIN_AFSTAND:
-            stappen.append(("straight", afstand))
-        if abs(hoek) >= MIN_HOEK:
-            stappen.append(("turn", hoek))
+            soort = "rijden"
 
-    if abs(links) >= MIN_ATTACHMENT:
-        stappen.append(("run_angle", LEFT_ATTACHMENT,
-                        ATTACHMENT_SNELHEID_IN_MISSIE, round(links)))
-    if abs(rechts) >= MIN_ATTACHMENT:
-        stappen.append(("run_angle", RIGHT_ATTACHMENT,
-                        ATTACHMENT_SNELHEID_IN_MISSIE, round(rechts)))
-    return stappen
+    if soort == "rijden" and abs(afstand) >= MIN_AFSTAND:
+        return ("straight", afstand), (afstand, 0, 0, 0)
+    if soort == "draaien" and abs(hoek) >= MIN_HOEK:
+        return ("turn", hoek), (0, hoek, 0, 0)
+    if soort == "links_att" and abs(links) >= MIN_ATTACHMENT:
+        return (("run_angle", LEFT_ATTACHMENT, ATTACHMENT_SNELHEID_IN_MISSIE, links),
+                (0, 0, links, 0))
+    if soort == "rechts_att" and abs(rechts) >= MIN_ATTACHMENT:
+        return (("run_angle", RIGHT_ATTACHMENT, ATTACHMENT_SNELHEID_IN_MISSIE, rechts),
+                (0, 0, 0, rechts))
+    return None, None
 
 
 def stap_als_tekst(stap):
@@ -287,6 +328,9 @@ def keer_om(stap):
 # AANGEPAST (nieuw): alles wat de opname moet onthouden, staat in deze
 # variabelen buiten de functies. Daarom staat er in de functies 'global'.
 opname = []              # de opgenomen stappen, bv. [("straight", 412), ...]
+# AANGEPAST (nieuw): bij elke stap in 'opname' staat hier hoeveel die stap
+# beweegt: (afstand, hoek, links, rechts). Nodig voor BACKSPACE.
+bewegingen = []
 eerste_nummer = 0        # welk stapnummer de eerste opgenomen stap krijgt
 begin_van_stap = {}      # metingen op het moment dat de huidige stap begon
 # Kwam je uit de testmodus? Dan staan hier de stappen van de missie die de
@@ -300,6 +344,7 @@ def nieuwe_opname():
     """Wist de opname en begint opnieuw, met de robot op 0."""
     global begin_van_stap
     opname.clear()     # clear() maakt de lijst leeg
+    bewegingen.clear()
     nulpunt_zetten()
     begin_van_stap = lees_metingen()
     # De computer luistert naar regels die beginnen met NIEUW, STAP of WEG
@@ -311,44 +356,64 @@ def nieuwe_opname():
         print("NIEUW", eerste_nummer)
 
 
-def sluit_stap():
-    """Sluit de huidige stap af: meten, stappen maken, doorsturen."""
-    global begin_van_stap
+def verschuif_begin(beweging, richting):
+    """AANGEPAST (nieuw): de volgende stap begint waar deze stap VOLGENS DE
+    MISSIE eindigt, niet waar de robot nu echt staat.
+    Een voorbeeld: je rijdt 400 mm rechtdoor en de robot wijkt 2 graden af.
+    De stap wordt ("straight", 400). In de missie houdt de gyro de robot
+    recht, dus die 2 graden "bestaan niet" in de missie. Daarom tellen we
+    ze niet weg: draai je daarna 90 graden, dan meet de robot 92 graden
+    sinds het begin, en wordt de stap ("turn", 92). Zo komt de robot in de
+    missie toch in de juiste richting uit.
+    richting = 1 na een nieuwe stap, -1 als je een stap wist (BACKSPACE)."""
+    # begin_van_stap is een dictionary: die mogen we hier aanpassen zonder 'global'
+    begin_van_stap["afstand"] += richting * beweging[0]
+    begin_van_stap["hoek"] += richting * beweging[1]
+    begin_van_stap["links"] += richting * beweging[2]
+    begin_van_stap["rechts"] += richting * beweging[3]
+
+
+def sluit_stap(soort):
+    """Sluit de huidige stap af: meten, een stap maken, doorsturen.
+    AANGEPAST: 'soort' is de soort beweging die je met de toetsen deed
+    (of None als je niets deed: dan komt er geen stap)."""
     wacht_tot_stilstand()
     afstand, hoek, links, rechts = verschil_sinds(begin_van_stap)
-    nieuwe_stappen = maak_stappen(afstand, hoek, links, rechts)
-    for stap in nieuwe_stappen:
+    stap, beweging = maak_stap(soort, afstand, hoek, links, rechts)
+    # Was de beweging te klein voor een stap? Dan tellen die paar mm mee
+    # bij de volgende stap.
+    if stap is not None:
         opname.append(stap)
+        bewegingen.append(beweging)
+        verschuif_begin(beweging, 1)
         print("STAP", eerste_nummer + len(opname) - 1, stap_als_tekst(stap))
-    # Was de beweging te klein voor een stap? Dan beginnen we NIET opnieuw
-    # te tellen: die paar mm tellen dan mee bij de volgende stap.
-    if nieuwe_stappen:
-        begin_van_stap = lees_metingen()
     HUB.display.number(eerste_nummer + len(opname))
 
 
-def laatste_stap_ongedaan():
+def laatste_stap_ongedaan(soort):
     """Wist de laatste stap en rijdt de robot terug naar waar hij voor
     die stap stond. Zo kan je een foute beweging opnieuw proberen."""
-    global begin_van_stap
-    sluit_stap()    # eerst de beweging van nu ook als stap bewaren
+    sluit_stap(soort)    # eerst de beweging van nu ook als stap bewaren
     if not opname:
         print("Er is geen stap om ongedaan te maken.")
         return
     stap = opname.pop()    # pop() haalt het laatste element uit de lijst
+    beweging = bewegingen.pop()
     keer_om(stap)
-    begin_van_stap = lees_metingen()
+    # AANGEPAST: de volgende stap begint weer waar de gewiste stap begon
+    verschuif_begin(beweging, -1)
     print("WEG", eerste_nummer + len(opname))
     HUB.display.number(eerste_nummer + len(opname))
 
 
-def afspelen():
+def afspelen(soort):
     """AANGEPAST (nieuw): speelt alles af zoals in een echte missie: op
     wedstrijdsnelheid en met de gyro aan. Eerst de stappen van de missie
     die de robot al gereden had (uit de testmodus), daarna de opname.
-    Zet de robot eerst met de hand terug op de startplek!"""
+    Zet de robot eerst met de hand terug op de startplek!
+    AANGEPAST: 'soort' is de soort beweging van de stap die nog loopt."""
     global begin_van_stap
-    sluit_stap()
+    sluit_stap(soort)
     # lijst + lijst = de twee lijsten achter elkaar
     alle_stappen = vooraf + opname
     if not alle_stappen:
@@ -422,6 +487,7 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
     stapmodus = False
     stapgrootte = "2"
     huidige_soort = None     # AANGEPAST: welke soort beweging de huidige stap is
+    aanloop_begin = None     # AANGEPAST (nieuw): wanneer het rechtdoor rijden begon
     teller = 0
 
     laatste_bericht = StopWatch()
@@ -501,20 +567,20 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
 
             if net_ingedrukt(cmd, vorige_cmd, STAP_KLAAR):
                 # SPATIE of ENTER: de huidige stap nu afsluiten
-                sluit_stap()
+                sluit_stap(huidige_soort)
                 huidige_soort = None
                 print("KLAAR")      # de computer weet zo dat alles binnen is
                 iets_gedaan = True
 
             if net_ingedrukt(cmd, vorige_cmd, ONGEDAAN):
                 # BACKSPACE: laatste stap wissen en terugrijden
-                laatste_stap_ongedaan()
+                laatste_stap_ongedaan(huidige_soort)
                 huidige_soort = None
                 iets_gedaan = True
 
             if net_ingedrukt(cmd, vorige_cmd, AFSPELEN):
                 # P: alles afspelen op wedstrijdsnelheid
-                afspelen()
+                afspelen(huidige_soort)
                 huidige_soort = None
                 iets_gedaan = True
                 laatste_bericht.reset()   # het afspelen duurde lang, dat is geen verbindingsfout
@@ -523,7 +589,7 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
             soort = soort_beweging(cmd)
             if soort is not None and soort != huidige_soort:
                 if huidige_soort is not None:
-                    sluit_stap()
+                    sluit_stap(huidige_soort)
                     iets_gedaan = True
                 huidige_soort = soort
 
@@ -536,6 +602,7 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
                 integraal = 0
                 draaisnelheid_gefilterd = 0
                 vorige_tijd = klok.time()
+                aanloop_begin = None   # AANGEPAST: na een stop weer rustig vertrekken
 
             # AANGEPAST (nieuw): stapgrootte kiezen met de cijfertoetsen.
             # cmd[STAPGROOTTE] is een getal (de code van het teken), chr()
@@ -580,6 +647,7 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
                 doel_hoek = HUB.imu.heading()
                 vorige_hoek = doel_hoek
                 integraal = 0
+                aanloop_begin = None
 
             else:
                 # --- GEWOON RIJDEN: toets ingedrukt houden ---
@@ -603,7 +671,28 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
                 if ingedrukt(cmd, RECHTS):
                     draaien += draai
 
-                if not GEBRUIK_EIGEN_PID or draaien != 0 or snelheid == 0:
+                # AANGEPAST (nieuw): rustig vertrekken bij rechtdoor rijden.
+                # 'rechtdoor' is True als je enkel Z of enkel S indrukt.
+                rechtdoor = snelheid != 0 and draaien == 0
+                if not rechtdoor:
+                    aanloop_begin = None
+                elif aanloop_begin is None:
+                    aanloop_begin = klok.time()    # het rechtdoor rijden begint nu
+                in_aanloop = rechtdoor and klok.time() - aanloop_begin < AANLOOP_TIJD
+
+                if in_aanloop:
+                    # De eerste kwart seconde: heel traag en zonder bijsturen,
+                    # tot beide motoren de speling weggetrokken hebben.
+                    # min() kiest het kleinste getal (met SHIFT kan de gewone
+                    # snelheid nog trager zijn dan de aanloop).
+                    traag = min(AANLOOP_SNELHEID, abs(snelheid))
+                    if snelheid < 0:
+                        traag = -traag
+                    # De richting op het einde van de aanloop wordt het doel
+                    doel_hoek = hoek
+                    integraal = 0
+                    DRIVE_BASE.drive(traag, 0)
+                elif not GEBRUIK_EIGEN_PID or not rechtdoor:
                     # Ingebouwde regeling, of je draait bewust, of je staat stil:
                     # de richting waar de robot NU naar kijkt wordt het nieuwe doel.
                     doel_hoek = hoek
@@ -668,7 +757,7 @@ def vrij_rijden(vooraf_stappen=None, missie="", start=0):
 
     # De laatste beweging ook nog als stap bewaren
     stop_alles()
-    sluit_stap()
+    sluit_stap(huidige_soort)
     print("EINDE")
     stop_alles()
 

@@ -76,7 +76,7 @@ Hiermee rijd je de robot met het toetsenbord over de mat, en **neemt de robot al
 
 **Eenmalig klaarzetten op een Windows-computer:**
 1. Download **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)**. Daarin zitten Python en alle onderdelen al. Je hoeft dus **niets te installeren**.
-2. Zet het in een eigen map, bijvoorbeeld `Documenten/robot`. Daar komen later ook `opname.txt` en `rijlog.txt`.
+2. Zet het in een eigen map, bijvoorbeeld `Documenten/robot`. Daar komen later ook `opname.txt` en `alle_opnames.txt`.
 3. Dubbelklik op `stuur_robot.exe`. Er opent een zwart venster: dat is het programma.
 
 De eerste keer kan Windows een blauw venster tonen: *"Windows heeft uw pc beschermd"*. Dat komt omdat het programma niet van een bekend bedrijf komt. Klik op **Meer informatie** en dan op **Toch uitvoeren**. Dat moet maar één keer.
@@ -121,6 +121,7 @@ Je kan ook nog altijd `vrij_rijden.py` zelf op de hub laden en starten, zoals vr
 | 1 / 2 / 3 | stapgrootte in de stapmodus: fijn (1 mm) / normaal (5 mm) / grof (20 mm) |
 | SPATIE | de huidige stap nu afsluiten |
 | ENTER | de opname groot tonen, over het hele scherm (nog eens ENTER: terug) |
+| C | de stappen **kopiëren**: plak ze daarna met CTRL+V in `missies.py` |
 | BACKSPACE | de laatste stap wissen: de robot rijdt terug naar waar hij voor die stap stond |
 | R | de opname wissen en opnieuw beginnen op de plek waar de robot nu staat |
 | P | alles **afspelen** op wedstrijdsnelheid (zet de robot eerst terug op de startplek) |
@@ -135,6 +136,8 @@ Voor de cijfers 1, 2, 3 mag je de toetsen bovenaan gebruiken (zonder SHIFT) of h
 2. Q indrukken: de robot stopt even, en op de computer verschijnt `Stap 0:  ("straight", 412),`. Nu draait de robot.
 3. I indrukken: `Stap 1:  ("turn", -37),` verschijnt, en de arm beweegt.
 4. ESC: de laatste stap `("run_angle", LEFT_ATTACHMENT, 200, 90),` komt erbij en `opname.txt` is klaar.
+
+De **toetsen** bepalen welke soort stap het wordt, niet de metingen. Z of S wordt altijd een `"straight"`, ook als de robot onderweg een paar graden afwijkt (geen robot rijdt perfect recht). Q of D wordt altijd een `"turn"`. Die kleine afwijking gaat niet verloren: ze telt mee bij de volgende draai. Week de robot 2 graden af en draai je daarna 90 graden, dan wordt de draai `("turn", 92)`. In de missie houdt de gyro de robot recht, dus zo komt hij toch in de juiste richting uit. Daarom kan "Hoek" in het vak *Deze stap* al een paar graden tonen voor je begint te draaien.
 
 Wil je twee stukken rechtdoor als **twee aparte** stappen? Druk er SPATIE tussen. Was een stap fout? Druk BACKSPACE: de stap verdwijnt uit de opname en de robot rijdt terug, zodat je opnieuw kan proberen.
 
@@ -153,9 +156,11 @@ Op het scherm van de hub staat het nummer van de stap die je nu aan het opnemen 
 | Toetsen | een spiekbriefje met alle toetsen |
 | Meldingen | de laatste berichten, met het tijdstip |
 
-Is je venster klein, dan worden de vakken kleiner en verdwijnt het vak Meldingen: de laatste melding staat dan bovenaan. Maak het venster groter (of zet het op volledig scherm) om alles te zien. Na het stoppen komt je gewone terminal terug, met de hele opname erin.
+Is je venster klein, dan worden de vakken kleiner en verdwijnt het vak Meldingen: de laatste melding staat dan bovenaan. Maak het venster groter (of zet het op volledig scherm) om alles te zien. Na het stoppen komt je gewone terminal terug, met de hele opname erin: enkel de stappen, zonder kader en zonder tijdstip.
 
-**Van opname naar missie.** Open `opname.txt` (in dezelfde map als `stuur_robot.py`). Het ziet er zo uit:
+**Van opname naar missie.** De makkelijkste manier: druk **C** (tijdens het rijden) en plak de stappen met **CTRL+V** in je missie in `missies.py`, boven `("call", stop_attachments)`. Als je stopt met ESC, staan de stappen zelfs vanzelf al op het klembord. Je hoeft dus niets te selecteren in het zwarte venster.
+
+Liever met een bestand? Open `opname.txt` (in dezelfde map als `stuur_robot.py`). Het ziet er zo uit:
 
 ```
 # Opname van stuur_robot.py (12-10-2026 14:03)
@@ -166,7 +171,7 @@ Is je venster klein, dan worden de vakken kleiner en verdwijnt het vak Meldingen
     ("run_angle", LEFT_ATTACHMENT, 200, 90),        # stap 2
 ```
 
-Kopieer de stappen in je missie in `missies.py`, boven `("call", stop_attachments)`. Test daarna met de testmodus. Bij een nieuwe opname wordt `opname.txt` overschreven: kopieer dus eerst wat je wil houden.
+Kopieer de stappen in je missie in `missies.py`, boven `("call", stop_attachments)`. Test daarna met de testmodus. Bij een nieuwe opname wordt `opname.txt` overschreven. Geen nood: elke afgewerkte opname komt ook in **`alle_opnames.txt`**, met de **nieuwste bovenaan**. Elke opname begint daar met een regel als `# ===== Opname van 22-10-2026 14:03 (3 stappen) =====`. Er staat geen tijdstip voor elke stap, en stappen die je met BACKSPACE gewist hebt, staan er niet in. Zo kan je ze zonder knippen kopiëren.
 
 **Afspelen met P.** Met het toetsenbord rijdt de robot traag. In de missie rijdt hij veel sneller, en dan kan hij net iets anders uitkomen (bijvoorbeeld als hij tegen iets aan botst). Daarom kan je alles meteen afspelen zoals in de echte missie:
 
@@ -192,18 +197,19 @@ Als je stopt (ESC of MIDDEN), kom je terug in het menu.
 **Goed om te weten:**
 - Heel kleine bewegingen (minder dan 3 mm of 1 graad) worden geen stap. Die tellen mee bij de volgende stap.
 - De snelheid in een opgenomen attachment-stap is altijd 200. Pas ze daarna gerust aan in `missies.py`.
-
-Alles wat de hub terugstuurt wordt ook bewaard in `rijlog.txt` op de computer.
+- Als je rechtdoor vertrekt, rijdt de robot eerst een kwart seconde heel traag. Zo trekken beide motoren de speling tussen de tandwielen weg, en schommelt de robot niet bij het vertrekken.
+- `rijlog.txt` van een vorige versie wordt niet meer gebruikt. Je mag het weggooien.
 
 **Veiligheid:** komt er 0,5 seconde lang niets binnen van de computer (verbinding weg), dan stopt de robot vanzelf.
 
-**Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, de stapgroottes (`STAPGROOTTES`), de snelheid in opgenomen attachment-stappen (`ATTACHMENT_SNELHEID_IN_MISSIE`), vanaf wanneer een beweging een stap wordt (`MIN_AFSTAND`, `MIN_HOEK`, ...) en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
+**Instellingen** staan bovenaan `vrij_rijden.py`: snelheden, hoe zacht de robot vertrekt en afremt (`RIJ_VERSNELLING`, `DRAAI_VERSNELLING`), het rustig vertrekken (`AANLOOP_SNELHEID`, `AANLOOP_TIJD`), de stapgroottes (`STAPGROOTTES`), de snelheid in opgenomen attachment-stappen (`ATTACHMENT_SNELHEID_IN_MISSIE`), vanaf wanneer een beweging een stap wordt (`MIN_AFSTAND`, `MIN_HOEK`, ...) en de PID-waarden. Met `GEBRUIK_EIGEN_PID = False` gebruik je de ingebouwde gyroregeling van Pybricks in plaats van onze eigen PID. Probeer beide en kies wat het rechtst rijdt.
 
 Heet jullie hub anders dan `githo botic`? Maak dan in dezelfde map als `stuur_robot.exe` (of `stuur_robot.py`) een tekstbestand `hubnaam.txt` (met Kladblok) en typ daarin enkel de naam van jullie hub, precies zoals in Pybricks Code. Met `stuur_robot.py` kan je ook `HUB_NAME` bovenaan het bestand aanpassen.
 
 **Werkt het niet?**
 - Zegt de computer *"Deze stuur_robot.py past niet bij de code op de hub"* of *"De hub heeft een oude vrij_rijden.py"*? Download dan de nieuwste `stuur_robot.py` **en** de nieuwste code voor de hub. Ze moeten van dezelfde versie zijn.
 - Reageert de robot niet? Kijk of je in het menu wel de letter V gestart hebt.
+- Zegt het programma *"Kopiëren lukt niet op deze computer"*? Open dan `opname.txt` en kopieer daar. (Op Linux moet daarvoor `xclip` geïnstalleerd zijn.)
 - Verdwijnt `stuur_robot.exe` meteen, of zegt de virusscanner van school dat het gevaarlijk is? Dat gebeurt soms met programma's die zelf gemaakt zijn. Vraag de leerkracht om het toe te laten, of gebruik `stuur_robot.py` met Python.
 
 ---

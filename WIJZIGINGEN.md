@@ -9,6 +9,30 @@ Hoe werk je bij? Zie [1. GitHub en Pybricks](docs/1-github-en-pybricks.md#er-is-
 
 ---
 
+## Versie 2026-10-22
+
+Jullie opmerkingen over rijden met het toetsenbord zijn verwerkt: makkelijker kopiëren, geen rare kleine stappen meer, en de robot rijdt rustiger.
+
+**Wat moet je doen?**
+- Maak eerst een back-up in Pybricks Code (**Backup all files**).
+- Download [robot-zonder-missies.zip](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/robot-zonder-missies.zip) en importeer het in Pybricks Code. Kies telkens voor vervangen.
+- Download ook de nieuwe **[stuur_robot.exe](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.exe)** (of op een Mac [stuur_robot.py](https://github.com/bert1/FLL-githobotics/releases/download/nieuwste/stuur_robot.py)) en zet die in de plaats van de oude.
+- Het oude bestand `rijlog.txt` wordt niet meer gebruikt. Je mag het weggooien.
+- **`missies.py` hoeft niet te veranderen.** Jullie missies blijven zoals ze zijn.
+
+**Wat is er nieuw?**
+- **Kopiëren met C:** druk C en alle stappen staan op het klembord. Plak ze met CTRL+V in `missies.py`. Na het stoppen (ESC) gebeurt dat vanzelf. Je hoeft niets meer te selecteren in het zwarte venster.
+- Na het stoppen staan de stappen in het venster **zonder kader** eromheen, zodat je ook daar netjes kan selecteren.
+- **alle_opnames.txt** in plaats van `rijlog.txt`: elke afgewerkte opname komt erin, de **nieuwste bovenaan**. Geen tijdstip meer voor elke regel, en stappen die je met BACKSPACE wiste, staan er **niet** meer in.
+- **Rechtdoor blijft rechtdoor:** Z of S wordt nu altijd een `"straight"`, ook als de robot onderweg een beetje afwijkt. Er komt geen kleine `"turn"` of `"curve"` meer bij. Die kleine afwijking telt mee in de volgende draai, zodat de missie toch klopt.
+- **Rustiger rijden:** rijden gaat nu 80 mm/s (was 120), draaien 30 graden/s (was 45). Met SHIFT: 25 mm/s en 10 graden/s. De robot vertrekt en remt ook zachter.
+- **Geen schommelen meer bij het vertrekken:** rij je rechtdoor, dan rijdt de robot eerst een kwart seconde heel traag. Zo trekken beide motoren de speling tussen de tandwielen weg voor hij versnelt. Ook stuurt de PID minder hard bij (`MAX_CORRECTIE` 10 in plaats van 20).
+- Al deze getallen kan je zelf aanpassen bovenaan `vrij_rijden.py`.
+
+**Welke bestanden?** `robot/vrij_rijden.py`, `computer/stuur_robot.py`, `robot/supportcode.py` (enkel `VERSIE`) en de uitleg.
+
+---
+
 ## Versie 2026-10-14
 
 Rijden met het toetsenbord kan nu op Windows **zonder iets te installeren**: dubbelklik op `stuur_robot.exe`.
